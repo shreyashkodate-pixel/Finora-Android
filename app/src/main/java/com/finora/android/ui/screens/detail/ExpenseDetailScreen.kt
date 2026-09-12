@@ -18,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Receipt
@@ -62,6 +63,7 @@ import java.util.Locale
 fun ExpenseDetailScreen(
     expenseId: String,
     onNavigateBack: () -> Unit,
+    onNavigateToEdit: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ExpenseDetailViewModel = remember(expenseId) { ExpenseDetailViewModel(expenseId) }
 ) {
@@ -117,6 +119,13 @@ fun ExpenseDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToEdit) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Expense",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     IconButton(onClick = { viewModel.showDeleteDialog(true) }) {
                         Icon(
                             imageVector = Icons.Default.Delete,

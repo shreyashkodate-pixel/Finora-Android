@@ -214,4 +214,14 @@ class ExpensesViewModel(
             )
         }
     }
+
+    fun deleteExpense(expenseId: String) {
+        val profileId = _uiState.value.profileId
+        viewModelScope.launch {
+            val resolvedProfileId = if (profileId.isNotBlank()) profileId else profileRepository.getActiveProfile()?.id
+            if (resolvedProfileId != null) {
+                expenseRepository.deleteExpenseById(expenseId, resolvedProfileId)
+            }
+        }
+    }
 }

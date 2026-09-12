@@ -48,8 +48,8 @@ object CategoryIcons {
         "#8E24AA"
     )
 
-    fun getIcon(iconName: String): ImageVector {
-        return when (iconName.lowercase()) {
+    fun getIcon(iconName: String, categoryName: String = ""): ImageVector {
+        val mapped = when (iconName.lowercase()) {
             "restaurant", "fastfood" -> Icons.Default.Fastfood
             "directions_car", "transport", "transit" -> Icons.Default.DirectionsCar
             "home", "housing" -> Icons.Default.Home
@@ -61,6 +61,22 @@ object CategoryIcons {
             "laptop_mac", "computer", "freelance" -> Icons.Default.Computer
             "fitness_center", "gym" -> Icons.Default.FitnessCenter
             "flight", "travel" -> Icons.Default.Flight
+            else -> null
+        }
+        if (mapped != null) return mapped
+
+        val nameLower = categoryName.lowercase()
+        return when {
+            nameLower.contains("food") || nameLower.contains("din") || nameLower.contains("restaurant") -> Icons.Default.Fastfood
+            nameLower.contains("car") || nameLower.contains("transport") || nameLower.contains("transit") || nameLower.contains("travel") -> Icons.Default.DirectionsCar
+            nameLower.contains("home") || nameLower.contains("rent") || nameLower.contains("house") -> Icons.Default.Home
+            nameLower.contains("shop") || nameLower.contains("grocer") -> Icons.Default.ShoppingBag
+            nameLower.contains("bill") || nameLower.contains("util") || nameLower.contains("receipt") -> Icons.Default.Receipt
+            nameLower.contains("entertain") || nameLower.contains("movie") || nameLower.contains("cinema") -> Icons.Default.Movie
+            nameLower.contains("health") || nameLower.contains("medic") || nameLower.contains("hospital") -> Icons.Default.LocalHospital
+            nameLower.contains("school") || nameLower.contains("edu") || nameLower.contains("study") -> Icons.Default.School
+            nameLower.contains("gym") || nameLower.contains("fit") -> Icons.Default.FitnessCenter
+            nameLower.contains("work") || nameLower.contains("laptop") -> Icons.Default.Computer
             else -> Icons.Default.MoreHoriz
         }
     }

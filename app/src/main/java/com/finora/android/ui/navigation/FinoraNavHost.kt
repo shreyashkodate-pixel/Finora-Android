@@ -18,8 +18,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -38,6 +40,19 @@ fun FinoraNavHost(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    var isReady by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var startRoute by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(Screen.Home.route) }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val active = DatabaseModule.profileRepository.getActiveProfile()
+        if (active == null) {
+            startRoute = Screen.Onboarding.route
+        }
+        isReady = true
+    }
+
+    if (!isReady) return
 
     val showBottomBar = currentRoute in Screen.bottomNavScreens.map { it.route }
 
@@ -59,7 +74,8 @@ fun FinoraNavHost(
         topBar = {
             val isExpenseDetail = currentRoute?.startsWith("expense_detail") == true
             val isBudgetDetail = currentRoute?.startsWith("budget_detail") == true
-            if (currentRoute != Screen.Onboarding.route && currentRoute != Screen.AddExpense.route && !isExpenseDetail && !isBudgetDetail) {
+            val isEditExpense = currentRoute?.startsWith("edit_expense") == true
+            if (currentRoute != Screen.Onboarding.route && currentRoute != Screen.AddExpense.route && !isExpenseDetail && !isBudgetDetail && !isEditExpense) {
                 FinoraTopAppBar(
                     title = topBarTitle,
                     canNavigateBack = canNavigateBack,
@@ -84,18 +100,9 @@ fun FinoraNavHost(
             }
         }
     ) { innerPadding ->
-        androidx.compose.runtime.LaunchedEffect(Unit) {
-            val active = DatabaseModule.profileRepository.getActiveProfile()
-            if (active == null) {
-                navController.navigate(Screen.Onboarding.route) {
-                    popUpTo(Screen.Home.route) { inclusive = true }
-                }
-            }
-        }
-
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route,
+            startDestination = startRoute,
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Onboarding.route) {
@@ -114,12 +121,18 @@ fun FinoraNavHost(
                     onNavigateToExpenseDetail = { expenseId ->
                         navController.navigate(Screen.ExpenseDetail.createRoute(expenseId))
                     },
+                    onNavigateToEdit = { expenseId ->
+                        navController.navigate(Screen.EditExpense.createRoute(expenseId))
+                    },
                     onNavigateToBudgets = { navController.navigate(Screen.Budgets.route) }
                 )
             }
             composable(Screen.Expenses.route) {
                 com.finora.android.ui.screens.expenses.ExpensesScreen(
                     onNavigateToAddExpense = { navController.navigate(Screen.AddExpense.route) },
+                    onNavigateToEdit = { expenseId ->
+                        navController.navigate(Screen.EditExpense.createRoute(expenseId))
+                    },
                     onExpenseClick = { expenseId ->
                         navController.navigate(Screen.ExpenseDetail.createRoute(expenseId))
                     }
@@ -134,8 +147,31 @@ fun FinoraNavHost(
                     },
                     onExpenseSaved = {
                         navController.navigate(Screen.Expenses.route) {
-                            popUpTo(Screen.Home.route)
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
+                    }
+                )
+            }
+            composable(
+                route = Screen.EditExpense.route,
+                arguments = listOf(
+                    androidx.navigation.navArgument("expenseId") {
+                        type = androidx.navigation.NavType.StringType
+                    }
+                )
+            ) { backStackEntry ->
+                val expenseId = backStackEntry.arguments?.getString("expenseId")
+                com.finora.android.ui.screens.add.AddExpenseScreen(
+                    expenseId = expenseId,
+                    onDismiss = {
+                        navController.popBackStack()
+                    },
+                    onExpenseSaved = {
+                        navController.popBackStack()
                     }
                 )
             }
@@ -150,7 +186,10 @@ fun FinoraNavHost(
                 val expenseId = backStackEntry.arguments?.getString("expenseId") ?: ""
                 com.finora.android.ui.screens.detail.ExpenseDetailScreen(
                     expenseId = expenseId,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToEdit = {
+                        navController.navigate(Screen.EditExpense.createRoute(expenseId))
+                    }
                 )
             }
             composable(Screen.Budgets.route) {

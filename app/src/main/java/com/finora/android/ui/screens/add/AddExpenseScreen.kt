@@ -10,6 +10,9 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,11 +21,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,16 +38,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Fastfood
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +56,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -74,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.finora.android.data.local.entity.CategoryEntity
+import com.finora.android.ui.components.CategoryIcons
 import com.finora.android.ui.components.FinancialKeypad
 import com.finora.android.ui.components.FinoraPrimaryButton
 import java.text.SimpleDateFormat
@@ -86,13 +93,15 @@ fun AddExpenseScreen(
     onDismiss: () -> Unit,
     onExpenseSaved: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: AddExpenseViewModel = viewModel()
+    expenseId: String? = null,
+    viewModel: AddExpenseViewModel = remember(expenseId) { AddExpenseViewModel(expenseId = expenseId) }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollState = rememberScrollState()
 
     var showDatePicker by remember { mutableStateOf(false) }
+    var isKeypadVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -134,8 +143,80 @@ fun AddExpenseScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             AddExpenseHeader(
-                onDismiss = onDismiss
+                onDismiss = onDismiss,
+                isEditing = uiState.isEditing
             )
+        },
+        bottomBar = {
+            AnimatedVisibility(
+                visible = isKeypadVisible,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 6.dp,
+                    shadowElevation = 16.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Keypad Access Bar
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "AMOUNT",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = 1.sp
+                                )
+                                Text(
+                                    text = "${uiState.currencySymbol} ${if (uiState.amountInput.isEmpty()) "0" else uiState.amountInput}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            FilledTonalButton(
+                                onClick = { isKeypadVisible = false },
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Done",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Done", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Custom tactile Keypad (no system keyboard)
+                        FinancialKeypad(
+                            onKeyClick = { viewModel.onKeypadAction(it) }
+                        )
+                    }
+                }
+            }
         }
     ) { innerPadding ->
         Column(
@@ -146,10 +227,12 @@ fun AddExpenseScreen(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Hero Amount Display
+            // Hero Amount Display (Click to toggle custom keypad)
             HeroAmountDisplay(
                 currencySymbol = uiState.currencySymbol,
-                amount = uiState.amountInput
+                amount = uiState.amountInput,
+                isKeypadVisible = isKeypadVisible,
+                onClick = { isKeypadVisible = !isKeypadVisible }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -182,11 +265,14 @@ fun AddExpenseScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Category Selection
+            // Category Selection (Selecting auto-collapses keypad)
             CategoryGrid(
                 categories = uiState.categories,
                 selectedCategory = uiState.selectedCategory,
-                onCategoryClick = { viewModel.onSelectCategory(it) }
+                onCategoryClick = {
+                    viewModel.onSelectCategory(it)
+                    isKeypadVisible = false
+                }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -287,13 +373,6 @@ fun AddExpenseScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Financial Keypad
-            FinancialKeypad(
-                onKeyClick = { viewModel.onKeypadAction(it) }
-            )
-
             Spacer(modifier = Modifier.height(16.dp))
 
             // Error Message
@@ -307,15 +386,15 @@ fun AddExpenseScreen(
                 )
             }
 
-            // Primary Save Action
+            // Primary Save / Update Action
             FinoraPrimaryButton(
-                text = "Save Expense",
+                text = if (uiState.isEditing) "Update Expense" else "Save Expense",
                 onClick = { viewModel.saveExpense() },
                 enabled = uiState.isValid,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }
@@ -323,6 +402,7 @@ fun AddExpenseScreen(
 @Composable
 private fun AddExpenseHeader(
     onDismiss: () -> Unit,
+    isEditing: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -352,7 +432,7 @@ private fun AddExpenseHeader(
             }
             Column {
                 Text(
-                    text = "Add Expense",
+                    text = if (isEditing) "Edit Expense" else "Add Expense",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -367,7 +447,7 @@ private fun AddExpenseHeader(
                             .background(MaterialTheme.colorScheme.secondary)
                     )
                     Text(
-                        text = "QUICK ADD",
+                        text = if (isEditing) "UPDATE" else "QUICK ADD",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.secondary,
                         fontWeight = FontWeight.SemiBold
@@ -404,6 +484,8 @@ private fun AddExpenseHeader(
 private fun HeroAmountDisplay(
     currencySymbol: String,
     amount: String,
+    isKeypadVisible: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "cursor")
@@ -417,39 +499,88 @@ private fun HeroAmountDisplay(
         label = "cursorAlpha"
     )
 
-    Column(
+    val shape = RoundedCornerShape(20.dp)
+    val containerColor = if (isKeypadVisible) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    }
+
+    val borderModifier = if (isKeypadVisible) {
+        Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, shape)
+    } else {
+        Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), shape)
+    }
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .clip(shape)
+            .then(borderModifier)
+            .background(containerColor)
+            .clickable(onClick = onClick)
+            .padding(vertical = 16.dp, horizontal = 20.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Row(
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.Center
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(
-                text = currencySymbol,
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = if (amount.isEmpty()) "0" else amount,
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = 52.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                color = MaterialTheme.colorScheme.primary
-            )
-            Box(
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = currencySymbol,
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = if (isKeypadVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (amount.isEmpty()) "0" else amount,
+                    style = MaterialTheme.typography.displayLarge.copy(
+                        fontSize = 48.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                if (isKeypadVisible) {
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 3.dp, bottom = 8.dp)
+                            .width(3.dp)
+                            .height(36.dp)
+                            .alpha(cursorAlpha)
+                            .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(2.dp))
+                    )
+                }
+            }
+
+            // Interactive hint pill
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier
-                    .padding(start = 2.dp, bottom = 10.dp)
-                    .width(3.dp)
-                    .height(38.dp)
-                    .alpha(cursorAlpha)
-                    .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(2.dp))
-            )
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (isKeypadVisible) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        else MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = null,
+                    tint = if (isKeypadVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(12.dp)
+                )
+                Text(
+                    text = if (isKeypadVisible) "Tap outside or Done to collapse keypad" else "Tap to enter amount",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isKeypadVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -584,7 +715,7 @@ private fun CategoryGridItem(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = getCategoryIcon(category.iconName),
+                imageVector = CategoryIcons.getIcon(category.iconName, category.name),
                 contentDescription = category.name,
                 tint = if (isSelected) MaterialTheme.colorScheme.secondary else categoryColor,
                 modifier = Modifier.size(18.dp)
@@ -599,13 +730,5 @@ private fun CategoryGridItem(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-    }
-}
-
-private fun getCategoryIcon(iconName: String): ImageVector {
-    return when (iconName) {
-        "restaurant" -> Icons.Default.Fastfood
-        "receipt_long" -> Icons.Default.Receipt
-        else -> Icons.Default.MoreHoriz
     }
 }

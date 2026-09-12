@@ -27,6 +27,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,6 +35,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.finora.android.core.model.Amount
+import com.finora.android.data.local.relation.ExpenseWithDetails
 import com.finora.android.domain.model.BudgetStatus
 import com.finora.android.ui.components.CategoryIcons
 import com.finora.android.ui.components.FinoraEmptyState
@@ -58,11 +63,41 @@ fun HomeScreen(
     onNavigateToAddExpense: () -> Unit,
     onNavigateToExpenses: () -> Unit,
     onNavigateToExpenseDetail: (String) -> Unit,
+    onNavigateToEdit: (String) -> Unit,
     onNavigateToBudgets: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var expenseToDelete by remember { mutableStateOf<ExpenseWithDetails?>(null) }
+
+    if (expenseToDelete != null) {
+        val target = expenseToDelete!!
+        val amount = Amount(target.expense.amountMinorUnits)
+        AlertDialog(
+            onDismissRequest = { expenseToDelete = null },
+            title = { Text("Delete Expense?") },
+            text = {
+                Text("Are you sure you want to delete this expense record (${target.category.name} • ${amount.toFormattedString(uiState.currencySymbol)})? This action cannot be undone.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val id = target.expense.id
+                        expenseToDelete = null
+                        viewModel.deleteExpense(id)
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { expenseToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     if (!uiState.hasExpenses && !uiState.isLoading) {
         FinoraEmptyState(
@@ -576,7 +611,9 @@ fun HomeScreen(
                     ExpenseItemCard(
                         item = item,
                         currencySymbol = uiState.currencySymbol,
-                        onClick = { onNavigateToExpenseDetail(item.expense.id) }
+                        onClick = { onNavigateToExpenseDetail(item.expense.id) },
+                        onEdit = { onNavigateToEdit(item.expense.id) },
+                        onDelete = { expenseToDelete = item }
                     )
                 }
             }

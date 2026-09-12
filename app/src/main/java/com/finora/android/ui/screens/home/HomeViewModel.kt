@@ -60,6 +60,8 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private var currentProfileId: String? = null
+
     init {
         loadDashboardData()
     }
@@ -70,6 +72,7 @@ class HomeViewModel(
 
             val profile = profileRepository.getActiveProfile()
                 ?: profileRepository.createProfile("Personal", AppCurrency.DEFAULT.code)
+            currentProfileId = profile.id
 
             val currency = AppCurrency.fromCode(profile.currencyCode)
             val name = profile.name.ifBlank { "Personal" }
@@ -279,4 +282,13 @@ class HomeViewModel(
         val recentExpenses: List<ExpenseWithDetails>,
         val weeklyRhythm: List<DayRhythm>
     )
+
+    fun deleteExpense(expenseId: String) {
+        viewModelScope.launch {
+            val profileId = currentProfileId ?: profileRepository.getActiveProfile()?.id
+            if (profileId != null) {
+                expenseRepository.deleteExpenseById(expenseId, profileId)
+            }
+        }
+    }
 }

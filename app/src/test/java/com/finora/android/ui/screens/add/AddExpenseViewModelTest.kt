@@ -117,6 +117,51 @@ class AddExpenseViewModelTest {
         assertEquals("cat-food", saved.categoryId)
     }
 
+    @Test
+    fun testEditExpense_prepopulatesAndUpdates() = runTest {
+        val existingExpense = ExpenseEntity(
+            id = "exp-123",
+            profileId = "p1",
+            amountMinorUnits = 7550L,
+            currencyCode = "INR",
+            categoryId = "cat-food",
+            paymentMethodId = "pm-cash",
+            expenseDate = 1700000000000L,
+            title = "Lunch",
+            notes = "Tasty burger"
+        )
+        fakeExpenseRepository.expenseToReturn = ExpenseWithDetails(
+            expense = existingExpense,
+            category = fakeCategoryRepository.categories.first(),
+            paymentMethod = fakePaymentMethodRepository.methods.first()
+        )
+
+        val editViewModel = AddExpenseViewModel(
+            expenseId = "exp-123",
+            profileRepository = fakeProfileRepository,
+            categoryRepository = fakeCategoryRepository,
+            paymentMethodRepository = fakePaymentMethodRepository,
+            expenseRepository = fakeExpenseRepository
+        )
+        advanceUntilIdle()
+
+        assertTrue(editViewModel.uiState.value.isEditing)
+        assertEquals("75.50", editViewModel.uiState.value.amountInput)
+        assertEquals("Lunch", editViewModel.uiState.value.title)
+        assertEquals("Tasty burger", editViewModel.uiState.value.notes)
+
+        // Modify title
+        editViewModel.onTitleChanged("Grand Lunch")
+        editViewModel.saveExpense()
+        advanceUntilIdle()
+
+        assertEquals(1, fakeExpenseRepository.updatedExpenses.size)
+        val updated = fakeExpenseRepository.updatedExpenses.first()
+        assertEquals("exp-123", updated.id)
+        assertEquals("Grand Lunch", updated.title)
+        assertEquals(7550L, updated.amountMinorUnits)
+    }
+
     // Fakes
     private class FakeProfileRepository : ProfileRepository {
         val profile = ProfileEntity("p1", "Alice", "INR")
@@ -153,10 +198,12 @@ class AddExpenseViewModelTest {
     }
 
     private class FakeExpenseRepository : ExpenseRepository {
+        var expenseToReturn: ExpenseWithDetails? = null
         val savedExpenses = mutableListOf<ExpenseEntity>()
+        val updatedExpenses = mutableListOf<ExpenseEntity>()
         override fun getAllExpensesFlow(profileId: String): Flow<List<ExpenseWithDetails>> = flowOf(emptyList())
-        override fun getExpenseByIdFlow(id: String, profileId: String): Flow<ExpenseWithDetails?> = flowOf(null)
-        override suspend fun getExpenseById(id: String, profileId: String): ExpenseWithDetails? = null
+        override fun getExpenseByIdFlow(id: String, profileId: String): Flow<ExpenseWithDetails?> = flowOf(expenseToReturn)
+        override suspend fun getExpenseById(id: String, profileId: String): ExpenseWithDetails? = expenseToReturn
         override fun getExpensesByDateRangeFlow(profileId: String, startDate: Long, endDate: Long): Flow<List<ExpenseWithDetails>> = flowOf(emptyList())
         override fun getRecentExpensesFlow(profileId: String, limit: Int): Flow<List<ExpenseWithDetails>> = flowOf(emptyList())
         override fun getTotalSpendInDateRangeFlow(profileId: String, startDate: Long, endDate: Long): Flow<Long> = flowOf(0L)
@@ -194,7 +241,9 @@ class AddExpenseViewModelTest {
             return entity
         }
 
-        override suspend fun updateExpense(expense: ExpenseEntity) {}
+        override suspend fun updateExpense(expense: ExpenseEntity) {
+            updatedExpenses.add(expense)
+        }
         override suspend fun deleteExpense(expense: ExpenseEntity) {}
         override suspend fun deleteExpenseById(id: String, profileId: String) {}
     }

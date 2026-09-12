@@ -7,6 +7,7 @@ import com.finora.android.core.model.Amount
 import com.finora.android.core.model.AppCurrency
 import com.finora.android.data.local.entity.CategoryEntity
 import com.finora.android.data.local.entity.PaymentMethodEntity
+import com.finora.android.data.local.relation.ExpenseWithDetails
 import com.finora.android.data.repository.CategoryRepository
 import com.finora.android.data.repository.ExpenseRepository
 import com.finora.android.data.repository.PaymentMethodRepository
@@ -23,6 +24,8 @@ import kotlinx.coroutines.launch
 
 data class AddExpenseUiState(
     val profileId: String = "",
+    val expenseId: String? = null,
+    val isEditing: Boolean = false,
     val currencySymbol: String = "₹",
     val amountInput: String = "0",
     val categories: List<CategoryEntity> = emptyList(),
@@ -49,6 +52,7 @@ sealed interface AddExpenseEvent {
 }
 
 class AddExpenseViewModel(
+    private val expenseId: String? = null,
     private val profileRepository: ProfileRepository = DatabaseModule.profileRepository,
     private val categoryRepository: CategoryRepository = DatabaseModule.categoryRepository,
     private val paymentMethodRepository: PaymentMethodRepository = DatabaseModule.paymentMethodRepository,
@@ -67,7 +71,7 @@ class AddExpenseViewModel(
 
     private fun loadInitialData() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isLoading = true, expenseId = expenseId, isEditing = expenseId != null) }
             val profile = profileRepository.getActiveProfile()
                 ?: profileRepository.createProfile(
                     name = "Personal",
@@ -82,11 +86,39 @@ class AddExpenseViewModel(
                 )
             }
 
+            // If editing, load existing expense record
+            var existingExpense: ExpenseWithDetails? = null
+            if (expenseId != null) {
+                existingExpense = expenseRepository.getExpenseById(expenseId, profile.id)
+                if (existingExpense != null) {
+                    val exp = existingExpense.expense
+                    val decAmount = (exp.amountMinorUnits / 100.0)
+                    val amountStr = if (exp.amountMinorUnits % 100 == 0L) {
+                        (exp.amountMinorUnits / 100).toString()
+                    } else {
+                        String.format(java.util.Locale.US, "%.2f", decAmount)
+                    }
+
+                    _uiState.update { state ->
+                        state.copy(
+                            amountInput = amountStr,
+                            selectedCategory = existingExpense.category,
+                            selectedPaymentMethod = existingExpense.paymentMethod,
+                            selectedDate = exp.expenseDate,
+                            title = exp.title ?: "",
+                            notes = exp.notes ?: "",
+                            isExpanded = !exp.title.isNullOrBlank() || !exp.notes.isNullOrBlank()
+                        )
+                    }
+                }
+            }
+
             // Observe categories
             launch {
                 categoryRepository.getCategoriesFlow(profile.id).collect { categories ->
                     _uiState.update { state ->
                         val selected = state.selectedCategory
+                            ?: if (existingExpense != null) categories.find { it.id == existingExpense.category.id } else null
                             ?: categories.firstOrNull()
                         state.copy(categories = categories, selectedCategory = selected)
                     }
@@ -98,6 +130,7 @@ class AddExpenseViewModel(
                 paymentMethodRepository.getPaymentMethodsFlow(profile.id).collect { paymentMethods ->
                     _uiState.update { state ->
                         val selected = state.selectedPaymentMethod
+                            ?: if (existingExpense?.paymentMethod != null) paymentMethods.find { it.id == existingExpense.paymentMethod.id } else null
                             ?: paymentMethods.find { it.isDefault } ?: paymentMethods.firstOrNull()
                         state.copy(paymentMethods = paymentMethods, selectedPaymentMethod = selected)
                     }
@@ -179,17 +212,33 @@ class AddExpenseViewModel(
 
         viewModelScope.launch {
             try {
-                expenseRepository.createExpense(
-                    profileId = state.profileId,
-                    amount = amount,
-                    currencyCode = AppCurrency.fromCode(state.currencySymbol).code,
-                    categoryId = category.id,
-                    expenseDate = state.selectedDate,
-                    paymentMethodId = state.selectedPaymentMethod?.id,
-                    title = state.title.ifBlank { null },
-                    notes = state.notes.ifBlank { null },
-                    source = "MANUAL"
-                )
+                if (state.isEditing && state.expenseId != null) {
+                    val existing = expenseRepository.getExpenseById(state.expenseId, state.profileId)
+                    if (existing != null) {
+                        val updated = existing.expense.copy(
+                            amountMinorUnits = amount.minorUnits,
+                            categoryId = category.id,
+                            paymentMethodId = state.selectedPaymentMethod?.id,
+                            expenseDate = state.selectedDate,
+                            title = state.title.ifBlank { null },
+                            notes = state.notes.ifBlank { null },
+                            updatedAt = System.currentTimeMillis()
+                        )
+                        expenseRepository.updateExpense(updated)
+                    }
+                } else {
+                    expenseRepository.createExpense(
+                        profileId = state.profileId,
+                        amount = amount,
+                        currencyCode = AppCurrency.fromCode(state.currencySymbol).code,
+                        categoryId = category.id,
+                        expenseDate = state.selectedDate,
+                        paymentMethodId = state.selectedPaymentMethod?.id,
+                        title = state.title.ifBlank { null },
+                        notes = state.notes.ifBlank { null },
+                        source = "MANUAL"
+                    )
+                }
                 _events.emit(AddExpenseEvent.ExpenseSaved)
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message ?: "Failed to save expense") }

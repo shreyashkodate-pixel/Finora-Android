@@ -30,17 +30,22 @@ sealed class Screen(
         fun createRoute(expenseId: String) = "expense_detail/$expenseId"
     }
 
+    data object EditExpense : Screen("edit_expense/{expenseId}") {
+        fun createRoute(expenseId: String) = "edit_expense/$expenseId"
+    }
+
     data object BudgetDetail : Screen("budget_detail/{budgetId}") {
         fun createRoute(budgetId: String) = "budget_detail/$budgetId"
     }
 
     companion object {
-        val bottomNavScreens = listOf(
-            Home,
-            Expenses,
-            AddExpense,
-            Budgets,
-            Analytics
-        )
+        val bottomNavScreens: List<Screen>
+            get() = listOf(
+                Home,
+                Expenses,
+                AddExpense,
+                Budgets,
+                Analytics
+            )
     }
 }
