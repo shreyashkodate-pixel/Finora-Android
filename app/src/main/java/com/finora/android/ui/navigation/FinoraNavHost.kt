@@ -56,7 +56,8 @@ fun FinoraNavHost(
 
     Scaffold(
         topBar = {
-            if (currentRoute != Screen.Onboarding.route && currentRoute != Screen.AddExpense.route) {
+            val isExpenseDetail = currentRoute?.startsWith("expense_detail") == true
+            if (currentRoute != Screen.Onboarding.route && currentRoute != Screen.AddExpense.route && !isExpenseDetail) {
                 FinoraTopAppBar(
                     title = topBarTitle,
                     canNavigateBack = canNavigateBack,
@@ -96,12 +97,11 @@ fun FinoraNavHost(
                 )
             }
             composable(Screen.Expenses.route) {
-                FinoraEmptyState(
-                    title = "Expense History",
-                    description = "Your recorded expenses will appear here sorted chronologically.",
-                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                    actionButtonText = "Record Expense",
-                    onActionClick = { navController.navigate(Screen.AddExpense.route) }
+                com.finora.android.ui.screens.expenses.ExpensesScreen(
+                    onNavigateToAddExpense = { navController.navigate(Screen.AddExpense.route) },
+                    onExpenseClick = { expenseId ->
+                        navController.navigate(Screen.ExpenseDetail.createRoute(expenseId))
+                    }
                 )
             }
             composable(Screen.AddExpense.route) {
@@ -116,6 +116,20 @@ fun FinoraNavHost(
                             popUpTo(Screen.Home.route)
                         }
                     }
+                )
+            }
+            composable(
+                route = Screen.ExpenseDetail.route,
+                arguments = listOf(
+                    androidx.navigation.navArgument("expenseId") {
+                        type = androidx.navigation.NavType.StringType
+                    }
+                )
+            ) { backStackEntry ->
+                val expenseId = backStackEntry.arguments?.getString("expenseId") ?: ""
+                com.finora.android.ui.screens.detail.ExpenseDetailScreen(
+                    expenseId = expenseId,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.Budgets.route) {
