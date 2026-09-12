@@ -56,7 +56,7 @@ fun FinoraNavHost(
 
     Scaffold(
         topBar = {
-            if (currentRoute != Screen.Onboarding.route) {
+            if (currentRoute != Screen.Onboarding.route && currentRoute != Screen.AddExpense.route) {
                 FinoraTopAppBar(
                     title = topBarTitle,
                     canNavigateBack = canNavigateBack,
@@ -105,12 +105,18 @@ fun FinoraNavHost(
                 )
             }
             composable(Screen.AddExpense.route) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "Add Expense Flow",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
+                com.finora.android.ui.screens.add.AddExpenseScreen(
+                    onDismiss = {
+                        if (!navController.popBackStack()) {
+                            navController.navigate(Screen.Home.route)
+                        }
+                    },
+                    onExpenseSaved = {
+                        navController.navigate(Screen.Expenses.route) {
+                            popUpTo(Screen.Home.route)
+                        }
+                    }
+                )
             }
             composable(Screen.Budgets.route) {
                 FinoraEmptyState(
