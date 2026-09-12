@@ -57,7 +57,8 @@ fun FinoraNavHost(
     Scaffold(
         topBar = {
             val isExpenseDetail = currentRoute?.startsWith("expense_detail") == true
-            if (currentRoute != Screen.Onboarding.route && currentRoute != Screen.AddExpense.route && !isExpenseDetail) {
+            val isBudgetDetail = currentRoute?.startsWith("budget_detail") == true
+            if (currentRoute != Screen.Onboarding.route && currentRoute != Screen.AddExpense.route && !isExpenseDetail && !isBudgetDetail) {
                 FinoraTopAppBar(
                     title = topBarTitle,
                     canNavigateBack = canNavigateBack,
@@ -134,12 +135,30 @@ fun FinoraNavHost(
                 )
             }
             composable(Screen.Budgets.route) {
-                FinoraEmptyState(
-                    title = "No Monthly Budget Set",
-                    description = "Set a monthly spending limit to receive pacing alerts and guardrails.",
-                    icon = Icons.Default.AccountBalanceWallet,
-                    actionButtonText = "Set Monthly Budget",
-                    onActionClick = {}
+                com.finora.android.ui.screens.budgets.BudgetsScreen(
+                    onNavigateToBudgetDetail = { budgetId ->
+                        navController.navigate(Screen.BudgetDetail.createRoute(budgetId))
+                    },
+                    onNavigateToAddExpense = {
+                        navController.navigate(Screen.AddExpense.route)
+                    }
+                )
+            }
+            composable(
+                route = Screen.BudgetDetail.route,
+                arguments = listOf(
+                    androidx.navigation.navArgument("budgetId") {
+                        type = androidx.navigation.NavType.StringType
+                    }
+                )
+            ) { backStackEntry ->
+                val budgetId = backStackEntry.arguments?.getString("budgetId") ?: ""
+                com.finora.android.ui.screens.budgets.detail.BudgetDetailScreen(
+                    budgetId = budgetId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToExpenseDetail = { expenseId ->
+                        navController.navigate(Screen.ExpenseDetail.createRoute(expenseId))
+                    }
                 )
             }
             composable(Screen.Analytics.route) {

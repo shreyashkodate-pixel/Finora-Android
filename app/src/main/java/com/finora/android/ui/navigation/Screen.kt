@@ -30,6 +30,10 @@ sealed class Screen(
         fun createRoute(expenseId: String) = "expense_detail/$expenseId"
     }
 
+    data object BudgetDetail : Screen("budget_detail/{budgetId}") {
+        fun createRoute(budgetId: String) = "budget_detail/$budgetId"
+    }
+
     companion object {
         val bottomNavScreens = listOf(
             Home,
