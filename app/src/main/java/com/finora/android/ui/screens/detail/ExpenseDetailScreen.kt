@@ -151,11 +151,7 @@ fun ExpenseDetailScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     val amount = Amount(details.expense.amountMinorUnits)
-                    val categoryColor = try {
-                        Color(android.graphics.Color.parseColor(details.category.colorHex))
-                    } catch (e: Exception) {
-                        MaterialTheme.colorScheme.primary
-                    }
+                    val categoryColor = com.finora.android.ui.components.CategoryIcons.parseColorHex(details.category.colorHex)
 
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -178,7 +174,7 @@ fun ExpenseDetailScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = getDetailCategoryIcon(details.category.iconName),
+                                    imageVector = com.finora.android.ui.components.CategoryIcons.getIcon(details.category.iconName),
                                     contentDescription = details.category.name,
                                     tint = categoryColor,
                                     modifier = Modifier.size(28.dp)
@@ -264,13 +260,5 @@ private fun DetailRow(
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Medium
         )
-    }
-}
-
-private fun getDetailCategoryIcon(iconName: String): ImageVector {
-    return when (iconName) {
-        "restaurant" -> Icons.Default.Fastfood
-        "receipt_long" -> Icons.Default.Receipt
-        else -> Icons.Default.MoreHoriz
     }
 }
