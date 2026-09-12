@@ -88,12 +88,13 @@ fun FinoraNavHost(
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Home.route) {
-                FinoraEmptyState(
-                    title = "No Expenses Yet",
-                    description = "Start tracking your spending to see your dashboard and analytics.",
-                    icon = Icons.Default.Savings,
-                    actionButtonText = "Add First Expense",
-                    onActionClick = { navController.navigate(Screen.AddExpense.route) }
+                com.finora.android.ui.screens.home.HomeScreen(
+                    onNavigateToAddExpense = { navController.navigate(Screen.AddExpense.route) },
+                    onNavigateToExpenses = { navController.navigate(Screen.Expenses.route) },
+                    onNavigateToExpenseDetail = { expenseId ->
+                        navController.navigate(Screen.ExpenseDetail.createRoute(expenseId))
+                    },
+                    onNavigateToBudgets = { navController.navigate(Screen.Budgets.route) }
                 )
             }
             composable(Screen.Expenses.route) {
