@@ -14,6 +14,7 @@ interface ProfileRepository {
     suspend fun createProfile(name: String, currencyCode: String, themeMode: String = "SYSTEM"): ProfileEntity
     suspend fun updateThemeMode(themeMode: String)
     suspend fun updateCurrencyCode(currencyCode: String)
+    suspend fun updateProfileName(name: String) {}
 }
 
 class ProfileRepositoryImpl(
@@ -61,5 +62,10 @@ class ProfileRepositoryImpl(
     override suspend fun updateCurrencyCode(currencyCode: String) {
         val activeProfile = profileDao.getActiveProfile() ?: return
         profileDao.updateCurrencyCode(activeProfile.id, currencyCode)
+    }
+
+    override suspend fun updateProfileName(name: String) {
+        val activeProfile = profileDao.getActiveProfile() ?: return
+        profileDao.updateProfileName(activeProfile.id, name)
     }
 }

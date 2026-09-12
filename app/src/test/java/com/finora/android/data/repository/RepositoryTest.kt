@@ -237,5 +237,6 @@ class RepositoryTest {
         override suspend fun updateProfile(profile: ProfileEntity) { this.profile = profile }
         override suspend fun updateThemeMode(id: String, themeMode: String) { profile = profile?.copy(themeMode = themeMode) }
         override suspend fun updateCurrencyCode(id: String, currencyCode: String) { profile = profile?.copy(currencyCode = currencyCode) }
+        override suspend fun updateProfileName(id: String, name: String, updatedAt: Long) { profile = profile?.copy(name = name, updatedAt = updatedAt) }
     }
 }

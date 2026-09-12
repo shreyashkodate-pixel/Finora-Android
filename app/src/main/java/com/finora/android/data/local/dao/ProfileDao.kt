@@ -30,4 +30,7 @@ interface ProfileDao {
 
     @Query("UPDATE profiles SET currencyCode = :currencyCode WHERE id = :id")
     suspend fun updateCurrencyCode(id: String, currencyCode: String)
+
+    @Query("UPDATE profiles SET name = :name, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateProfileName(id: String, name: String, updatedAt: Long = System.currentTimeMillis())
 }

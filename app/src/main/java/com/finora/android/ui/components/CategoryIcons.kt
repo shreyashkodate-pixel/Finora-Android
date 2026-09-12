@@ -1,17 +1,53 @@
 package com.finora.android.ui.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Fastfood
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 
 object CategoryIcons {
+
+    val availableIcons = listOf(
+        "restaurant" to "Dining",
+        "directions_car" to "Transport",
+        "home" to "Housing",
+        "shopping_bag" to "Shopping",
+        "receipt_long" to "Bills",
+        "movie" to "Entertainment",
+        "health_and_safety" to "Health",
+        "school" to "Education",
+        "laptop_mac" to "Work",
+        "fitness_center" to "Fitness",
+        "flight" to "Travel",
+        "more_horiz" to "Other"
+    )
+
+    val availableColors = listOf(
+        "#046B5E",
+        "#004D40",
+        "#203037",
+        "#29695B",
+        "#36464E",
+        "#0F6F62",
+        "#BA1A1A",
+        "#00342B",
+        "#707975",
+        "#1E88E5",
+        "#FB8C00",
+        "#8E24AA"
+    )
+
     fun getIcon(iconName: String): ImageVector {
         return when (iconName.lowercase()) {
             "restaurant", "fastfood" -> Icons.Default.Fastfood
@@ -19,9 +55,28 @@ object CategoryIcons {
             "home", "housing" -> Icons.Default.Home
             "shopping_bag", "shopping_cart", "shopping" -> Icons.Default.ShoppingBag
             "receipt_long", "receipt", "bills" -> Icons.Default.Receipt
-            "movie", "entertainment" -> Icons.Default.Movie
+            "movie", "entertainment", "theater_comedy" -> Icons.Default.Movie
             "school", "education" -> Icons.Default.School
+            "health_and_safety", "health", "vital_signs" -> Icons.Default.LocalHospital
+            "laptop_mac", "computer", "freelance" -> Icons.Default.Computer
+            "fitness_center", "gym" -> Icons.Default.FitnessCenter
+            "flight", "travel" -> Icons.Default.Flight
             else -> Icons.Default.MoreHoriz
         }
     }
+
+    fun parseColorHex(hex: String, fallback: Color = Color(0xFF046B5E)): Color {
+        return try {
+            val cleanHex = hex.removePrefix("#")
+            val colorLong = cleanHex.toLong(16)
+            if (cleanHex.length == 6) {
+                Color(colorLong or 0x00000000FF000000L)
+            } else {
+                Color(colorLong)
+            }
+        } catch (_: Exception) {
+            fallback
+        }
+    }
 }
+

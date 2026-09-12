@@ -11,7 +11,10 @@ enum class AppCurrency(
     INR("INR", "₹", "Indian Rupee"),
     USD("USD", "$", "US Dollar"),
     EUR("EUR", "€", "Euro"),
-    GBP("GBP", "£", "British Pound");
+    GBP("GBP", "£", "British Pound"),
+    JPY("JPY", "¥", "Japanese Yen"),
+    AUD("AUD", "A$", "Australian Dollar"),
+    CAD("CAD", "C$", "Canadian Dollar");
 
     companion object {
         val DEFAULT = INR

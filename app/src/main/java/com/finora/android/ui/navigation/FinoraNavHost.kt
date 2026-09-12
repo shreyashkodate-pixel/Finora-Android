@@ -48,6 +48,7 @@ fun FinoraNavHost(
         Screen.Budgets.route -> "Budgets"
         Screen.Analytics.route -> "Analytics"
         Screen.Settings.route -> "Settings"
+        Screen.CategoryManagement.route -> "Categories"
         else -> "Finora"
     }
 
@@ -83,11 +84,29 @@ fun FinoraNavHost(
             }
         }
     ) { innerPadding ->
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            val active = DatabaseModule.profileRepository.getActiveProfile()
+            if (active == null) {
+                navController.navigate(Screen.Onboarding.route) {
+                    popUpTo(Screen.Home.route) { inclusive = true }
+                }
+            }
+        }
+
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
+            composable(Screen.Onboarding.route) {
+                com.finora.android.ui.screens.onboarding.OnboardingScreen(
+                    onOnboardingFinished = {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Onboarding.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
             composable(Screen.Home.route) {
                 com.finora.android.ui.screens.home.HomeScreen(
                     onNavigateToAddExpense = { navController.navigate(Screen.AddExpense.route) },
@@ -162,21 +181,23 @@ fun FinoraNavHost(
                 )
             }
             composable(Screen.Analytics.route) {
-                FinoraEmptyState(
-                    title = "Analytics Unavailable",
-                    description = "Record expenses to generate local, deterministic spending breakdowns.",
-                    icon = Icons.Default.BarChart,
-                    actionButtonText = "Record Expense",
-                    onActionClick = { navController.navigate(Screen.AddExpense.route) }
+                com.finora.android.ui.screens.analytics.AnalyticsScreen(
+                    onNavigateToAddExpense = { navController.navigate(Screen.AddExpense.route) },
+                    onNavigateToExpenseDetail = { expenseId ->
+                        navController.navigate(Screen.ExpenseDetail.createRoute(expenseId))
+                    }
                 )
             }
             composable(Screen.Settings.route) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "Settings & Profile",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
+                com.finora.android.ui.screens.settings.SettingsScreen(
+                    onNavigateToCategories = { navController.navigate(Screen.CategoryManagement.route) },
+                    onNavigateToBudgets = { navController.navigate(Screen.Budgets.route) }
+                )
+            }
+            composable(Screen.CategoryManagement.route) {
+                com.finora.android.ui.screens.categories.CategoryManagementScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
             }
         }
     }
