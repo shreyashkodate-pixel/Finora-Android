@@ -24,6 +24,11 @@
 * **Debt**: Two-pane master-detail layouts for Foldables and Tablets (`ListDetailPaneScaffold`) can be added for enhanced widescreen presentation.
 * **Target Solution**: Implement Material 3 Adaptive library components in V2.0.
 
+### 1.4 Dynamic Theme Preference Observation
+* **Current State**: Settings UI provides System / Light / Dark selector and persists user preference to `profiles.themeMode` in Room.
+* **Debt**: `MainActivity.kt` currently defaults `FinoraTheme` to `isSystemInDarkTheme()`.
+* **Target Solution**: Observe `profileRepository.getActiveProfileFlow()` in `MainActivity` to dynamically apply `themeMode` across the app in real-time.
+
 ---
 
 ## 2. Completed Milestones vs Future Roadmap

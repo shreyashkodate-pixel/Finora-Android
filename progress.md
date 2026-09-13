@@ -3,7 +3,7 @@
 **Document Purpose**: Record of completed milestones, architecture, implemented screens, and verification history for Finora Android.  
 **Current Release Target**: V1.0 ("Track"), V1.1 ("Protect & Own"), V1.2 ("Experience & Expand")  
 **Last Updated**: September 13, 2026  
-**Status**: V1.0, V1.1, and V1.2 Scope Complete, Fully Tested & Verified (100% Passing Unit Tests & Successful Debug Build)
+**Status**: V1.0, V1.1, and V1.2 Scope Complete, Fully Tested & Verified (100% Passing Unit Tests, Debug Build, and Verified on OPPO F23 5G)
 
 ---
 
@@ -19,7 +19,15 @@ Finora is a native Android, offline-first, privacy-first personal finance applic
 
 ---
 
-## 2. Completed Milestones
+## 2. Completed Milestones & Git Commits
+
+| Commit Hash | Branch | Description |
+| :--- | :--- | :--- |
+| `b890dcf` | `feat/v1.1-v1.2-release` | Implement V1.1 & V1.2 scopes (Security, Backup, Export, Income, Accounts, Subscriptions, Savings, Widgets) |
+| `8463d3b` | `main` | Remove obsolete repo_memory.md |
+| `3cc5275` | `main` | Add progress.md, Technical_Dept.md, and workspace repo memory |
+| `711aa03` | `main` | Implement in-place expense edit and delete actions with docked keypad UX |
+| `55abc68` | `main` | Use CategoryIcons in ExpenseDetailScreen |
 
 ```
 [x] V1.0 (Track) — Core Expense & Budget Foundation (Screens 1–12)
@@ -65,7 +73,7 @@ Finora is a native Android, offline-first, privacy-first personal finance applic
   * Added 5 new entities: `AccountEntity`, `IncomeEntity`, `RecurringExpenseEntity`, `SavingsGoalEntity`, and `SavingsContributionEntity`.
   * Extended `BackupManager` to backup and restore all V1.2 entities.
 * **Income & Cash Flow Tracking**:
-  * `domain/model/CashFlowCalculation.kt`: Deterministic math computing Total Income, Outflow, Net Cash Flow (`income - expenses`), and Savings Rate %.
+  * `domain/model/CashFlowCalculation.kt`: Deterministic engine computing Total Income, Outflow, Net Cash Flow (`income - expenses`), and Savings Rate %.
   * `ui/screens/income/AddIncomeScreen.kt` & `AddIncomeViewModel.kt`: Big amount hero, income source chips (Salary, Freelance, Investment, Gift, Refund, Other), account selector, and docked financial numpad.
   * `ui/screens/income/IncomeHistoryScreen.kt` & `IncomeHistoryViewModel.kt`: Feed of income entries with aggregate monthly inflow and deletion capability.
 * **Multi-Account Balances & Wallets**:
@@ -101,3 +109,6 @@ Finora is a native Android, offline-first, privacy-first personal finance applic
 * **APK Build Verification**:
   * Build command: `./gradlew assembleDebug`
   * **Result**: `BUILD SUCCESSFUL` (0 errors, valid APK generated).
+* **Physical Device Deployment**:
+  * Target Hardware: **OPPO F23 5G** (`CPH2527` / Android 14/15)
+  * Deployment Status: `Success` via adb streamed install, PID running cleanly without crashes.
