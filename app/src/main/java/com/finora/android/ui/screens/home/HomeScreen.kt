@@ -23,6 +23,12 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Paid
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -65,6 +71,10 @@ fun HomeScreen(
     onNavigateToExpenseDetail: (String) -> Unit,
     onNavigateToEdit: (String) -> Unit,
     onNavigateToBudgets: () -> Unit,
+    onNavigateToIncome: () -> Unit = {},
+    onNavigateToAccounts: () -> Unit = {},
+    onNavigateToRecurring: () -> Unit = {},
+    onNavigateToSavings: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel()
 ) {
@@ -217,6 +227,45 @@ fun HomeScreen(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            // V1.2 Quick Actions Row
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AssistChip(
+                        onClick = onNavigateToIncome,
+                        label = { Text("Income") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Paid, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                    )
+                    AssistChip(
+                        onClick = onNavigateToAccounts,
+                        label = { Text("Accounts") },
+                        leadingIcon = {
+                            Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                    )
+                    AssistChip(
+                        onClick = onNavigateToRecurring,
+                        label = { Text("Subscriptions") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Repeat, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                    )
+                    AssistChip(
+                        onClick = onNavigateToSavings,
+                        label = { Text("Savings") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Savings, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
                     )
                 }
             }
@@ -375,6 +424,71 @@ fun HomeScreen(
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Net Cash Flow Card
+            if (uiState.cashFlowSummary != null && (uiState.cashFlowSummary!!.totalIncome.minorUnits > 0L || uiState.monthOutflow.minorUnits > 0L)) {
+                val cf = uiState.cashFlowSummary!!
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (cf.isPositive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                            else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "NET MONTHLY CASH FLOW",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "${cf.savingsRatePercentage.toInt()}% savings rate",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${if (cf.isPositive) "+" else ""}${cf.netCashFlow.toFormattedString(uiState.currencySymbol)}",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (cf.isPositive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text(
+                                        text = "In: +${cf.totalIncome.toFormattedString(uiState.currencySymbol)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "Out: -${cf.totalExpenses.toFormattedString(uiState.currencySymbol)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
                                     )
                                 }
                             }

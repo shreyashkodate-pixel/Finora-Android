@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Finora</string>
+    <string name="shortcut_add_expense_short">Add Expense</string>
+    <string name="shortcut_add_expense_long">Quickly log a new expense</string>
+    <string name="shortcut_add_income_short">Add Income</string>
+    <string name="shortcut_add_income_long">Quickly record income</string>
+    <string name="widget_title">Finora Summary</string>
 </resources>

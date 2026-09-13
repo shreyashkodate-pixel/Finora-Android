@@ -60,6 +60,19 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Pin
+import androidx.compose.material3.Switch
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import com.finora.android.core.security.SecurityManager
+import com.finora.android.ui.screens.security.PinSetupDialog
+import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.finora.android.ui.screens.settings.components.CurrencySelectionDialog
 import com.finora.android.ui.screens.settings.components.EditProfileNameDialog
@@ -75,6 +88,18 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val securityManager = remember { SecurityManager.getInstance(context) }
+
+    var isAppLockEnabled by remember { mutableStateOf(securityManager.isAppLockEnabled()) }
+    var isBiometricEnabled by remember { mutableStateOf(securityManager.isBiometricEnabled()) }
+    var showPinSetupDialog by remember { mutableStateOf(false) }
+    var showExportSheet by remember { mutableStateOf(false) }
+    var showBackupSheet by remember { mutableStateOf(false) }
+
+    val exportSheetState = rememberModalBottomSheetState()
+    val backupSheetState = rememberModalBottomSheetState()
 
     LaunchedEffect(uiState.userMessage) {
         uiState.userMessage?.let { message ->
@@ -421,7 +446,7 @@ fun SettingsScreen(
                 }
             }
 
-            // Group 3: Privacy & Security (Air-Gapped Core Pillar)
+            // Group 3: Privacy & Security (V1.1 App Lock & Biometrics)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -430,7 +455,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "PRIVACY & SECURITY",
+                    text = "SECURITY & APP LOCK (V1.1)",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.secondary
@@ -442,7 +467,7 @@ fun SettingsScreen(
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = "AIR-GAPPED",
+                        text = if (isAppLockEnabled) "PROTECTED" else "UNLOCKED",
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
@@ -457,45 +482,167 @@ fun SettingsScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // App Lock Toggle Row
                     Row(
-                        verticalAlignment = Alignment.Top,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = "App Lock Protection",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = if (isAppLockEnabled) "PIN required on launch" else "App lock disabled",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
-                        Column {
-                            Text(
-                                text = "Zero-Cloud Storage Protocol",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "FINORA operates 100% offline. No internet permission exists in the app manifest, and all records remain strictly on this device.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+
+                        Switch(
+                            checked = isAppLockEnabled,
+                            onCheckedChange = { enable ->
+                                if (enable) {
+                                    if (!securityManager.hasPinSet()) {
+                                        showPinSetupDialog = true
+                                    } else {
+                                        securityManager.setAppLockEnabled(true)
+                                        isAppLockEnabled = true
+                                        scope.launch { snackbarHostState.showSnackbar("App Lock enabled") }
+                                    }
+                                } else {
+                                    securityManager.setAppLockEnabled(false)
+                                    isAppLockEnabled = false
+                                    scope.launch { snackbarHostState.showSnackbar("App Lock disabled") }
+                                }
+                            }
+                        )
+                    }
+
+                    if (isAppLockEnabled) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 0.5.dp)
+
+                        // Change PIN Row
+                        SettingsActionItem(
+                            icon = Icons.Default.Pin,
+                            title = "Change Application PIN",
+                            subtitle = "Update 4-digit security credential",
+                            onClick = { showPinSetupDialog = true }
+                        )
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 0.5.dp)
+
+                        // Biometric Toggle Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Fingerprint,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        text = "Biometric Authentication",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = "Fingerprint or device biometrics",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Switch(
+                                checked = isBiometricEnabled,
+                                onCheckedChange = { enable ->
+                                    securityManager.setBiometricEnabled(enable)
+                                    isBiometricEnabled = enable
+                                }
                             )
                         }
                     }
+                }
+            }
+
+            // Group 4: Data Ownership & Reports (V1.1)
+            Text(
+                text = "DATA OWNERSHIP & REPORTS (V1.1)",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+            )
+
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Export Statement (CSV / PDF)
+                    SettingsActionItem(
+                        icon = Icons.Default.FileDownload,
+                        title = "Export Statement (CSV / PDF)",
+                        subtitle = "Generate spreadsheet data or printable PDF report",
+                        onClick = { showExportSheet = true }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 0.5.dp)
+
+                    // Encrypted Backup & Restore
+                    SettingsActionItem(
+                        icon = Icons.Default.Backup,
+                        title = "Backup & Restore Vault (.finora)",
+                        subtitle = "AES-256 encrypted portable backup container",
+                        onClick = { showBackupSheet = true }
+                    )
                 }
             }
 
@@ -554,6 +701,44 @@ fun SettingsScreen(
                     TextButton(onClick = { viewModel.dismissInfoDialog() }) {
                         Text("Got it")
                     }
+                }
+            )
+        }
+
+        // PIN Setup Dialog
+        if (showPinSetupDialog) {
+            PinSetupDialog(
+                onDismiss = { showPinSetupDialog = false },
+                onPinSet = { pin ->
+                    securityManager.setPin(pin)
+                    securityManager.setAppLockEnabled(true)
+                    isAppLockEnabled = true
+                    showPinSetupDialog = false
+                    scope.launch {
+                        snackbarHostState.showSnackbar("PIN configured and App Lock enabled!")
+                    }
+                }
+            )
+        }
+
+        // Export Report Bottom Sheet
+        if (showExportSheet) {
+            ExportReportBottomSheet(
+                sheetState = exportSheetState,
+                onDismiss = { showExportSheet = false },
+                onExportSuccess = { msg ->
+                    scope.launch { snackbarHostState.showSnackbar(msg) }
+                }
+            )
+        }
+
+        // Backup & Restore Bottom Sheet
+        if (showBackupSheet) {
+            BackupRestoreBottomSheet(
+                sheetState = backupSheetState,
+                onDismiss = { showBackupSheet = false },
+                onSuccessMessage = { msg ->
+                    scope.launch { snackbarHostState.showSnackbar(msg) }
                 }
             )
         }

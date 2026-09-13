@@ -31,4 +31,10 @@ interface PaymentMethodDao {
 
     @Delete
     suspend fun deletePaymentMethod(paymentMethod: PaymentMethodEntity)
+
+    @Query("SELECT * FROM payment_methods")
+    suspend fun getAllPaymentMethods(): List<PaymentMethodEntity>
+
+    @Query("DELETE FROM payment_methods")
+    suspend fun deleteAllPaymentMethods()
 }

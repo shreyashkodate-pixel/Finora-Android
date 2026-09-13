@@ -50,4 +50,13 @@ interface BudgetDao {
 
     @Query("DELETE FROM budgets WHERE id = :id AND profileId = :profileId")
     suspend fun deleteBudgetById(id: String, profileId: String)
+
+    @Query("SELECT * FROM budgets")
+    suspend fun getAllBudgets(): List<BudgetEntity>
+
+    @Query("DELETE FROM budgets")
+    suspend fun deleteAllBudgets()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBudgets(budgets: List<BudgetEntity>)
 }

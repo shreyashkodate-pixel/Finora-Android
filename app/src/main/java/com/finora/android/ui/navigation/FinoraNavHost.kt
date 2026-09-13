@@ -32,7 +32,7 @@ import com.finora.android.ui.components.FinoraEmptyState
 import com.finora.android.ui.components.FinoraTopAppBar
 
 /**
- * Top-level navigation host coordinating V1.0 screens.
+ * Top-level navigation host coordinating V1.0 to V1.2 screens.
  */
 @Composable
 fun FinoraNavHost(
@@ -70,12 +70,23 @@ fun FinoraNavHost(
     val canNavigateBack = currentRoute !in Screen.bottomNavScreens.map { it.route } &&
             currentRoute != Screen.Onboarding.route
 
+    val customTopBarRoutes = listOf(
+        Screen.Onboarding.route,
+        Screen.AddExpense.route,
+        Screen.Income.route,
+        Screen.AddIncome.route,
+        Screen.Accounts.route,
+        Screen.Recurring.route,
+        Screen.Savings.route
+    )
+
+    val isExpenseDetail = currentRoute?.startsWith("expense_detail") == true
+    val isBudgetDetail = currentRoute?.startsWith("budget_detail") == true
+    val isEditExpense = currentRoute?.startsWith("edit_expense") == true
+
     Scaffold(
         topBar = {
-            val isExpenseDetail = currentRoute?.startsWith("expense_detail") == true
-            val isBudgetDetail = currentRoute?.startsWith("budget_detail") == true
-            val isEditExpense = currentRoute?.startsWith("edit_expense") == true
-            if (currentRoute != Screen.Onboarding.route && currentRoute != Screen.AddExpense.route && !isExpenseDetail && !isBudgetDetail && !isEditExpense) {
+            if (currentRoute !in customTopBarRoutes && !isExpenseDetail && !isBudgetDetail && !isEditExpense) {
                 FinoraTopAppBar(
                     title = topBarTitle,
                     canNavigateBack = canNavigateBack,
@@ -124,7 +135,11 @@ fun FinoraNavHost(
                     onNavigateToEdit = { expenseId ->
                         navController.navigate(Screen.EditExpense.createRoute(expenseId))
                     },
-                    onNavigateToBudgets = { navController.navigate(Screen.Budgets.route) }
+                    onNavigateToBudgets = { navController.navigate(Screen.Budgets.route) },
+                    onNavigateToIncome = { navController.navigate(Screen.Income.route) },
+                    onNavigateToAccounts = { navController.navigate(Screen.Accounts.route) },
+                    onNavigateToRecurring = { navController.navigate(Screen.Recurring.route) },
+                    onNavigateToSavings = { navController.navigate(Screen.Savings.route) }
                 )
             }
             composable(Screen.Expenses.route) {
@@ -235,6 +250,34 @@ fun FinoraNavHost(
             }
             composable(Screen.CategoryManagement.route) {
                 com.finora.android.ui.screens.categories.CategoryManagementScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // V1.2 Screen Composables
+            composable(Screen.Income.route) {
+                com.finora.android.ui.screens.income.IncomeHistoryScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToAddIncome = { navController.navigate(Screen.AddIncome.route) }
+                )
+            }
+            composable(Screen.AddIncome.route) {
+                com.finora.android.ui.screens.income.AddIncomeScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Accounts.route) {
+                com.finora.android.ui.screens.accounts.AccountsScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Recurring.route) {
+                com.finora.android.ui.screens.recurring.RecurringScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Savings.route) {
+                com.finora.android.ui.screens.savings.SavingsScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

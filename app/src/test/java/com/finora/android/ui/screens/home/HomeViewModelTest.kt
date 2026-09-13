@@ -7,8 +7,10 @@ import com.finora.android.data.local.entity.ExpenseEntity
 import com.finora.android.data.local.entity.PaymentMethodEntity
 import com.finora.android.data.local.entity.ProfileEntity
 import com.finora.android.data.local.relation.ExpenseWithDetails
+import com.finora.android.data.local.entity.IncomeEntity
 import com.finora.android.data.repository.BudgetRepository
 import com.finora.android.data.repository.ExpenseRepository
+import com.finora.android.data.repository.IncomeRepository
 import com.finora.android.data.repository.ProfileRepository
 import com.finora.android.domain.model.BudgetStatus
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +44,7 @@ class HomeViewModelTest {
     private lateinit var fakeProfileRepository: FakeProfileRepository
     private lateinit var fakeExpenseRepository: FakeExpenseRepository
     private lateinit var fakeBudgetRepository: FakeBudgetRepository
+    private lateinit var fakeIncomeRepository: FakeIncomeRepository
     private lateinit var viewModel: HomeViewModel
 
     private val testProfile = ProfileEntity("p1", "Arjun", "INR")
@@ -56,6 +59,7 @@ class HomeViewModelTest {
         fakeProfileRepository = FakeProfileRepository(testProfile)
         fakeExpenseRepository = FakeExpenseRepository()
         fakeBudgetRepository = FakeBudgetRepository()
+        fakeIncomeRepository = FakeIncomeRepository()
     }
 
     @After
@@ -68,7 +72,8 @@ class HomeViewModelTest {
         viewModel = HomeViewModel(
             profileRepository = fakeProfileRepository,
             expenseRepository = fakeExpenseRepository,
-            budgetRepository = fakeBudgetRepository
+            budgetRepository = fakeBudgetRepository,
+            incomeRepository = fakeIncomeRepository
         )
         advanceUntilIdle()
 
@@ -161,7 +166,8 @@ class HomeViewModelTest {
         viewModel = HomeViewModel(
             profileRepository = fakeProfileRepository,
             expenseRepository = fakeExpenseRepository,
-            budgetRepository = fakeBudgetRepository
+            budgetRepository = fakeBudgetRepository,
+            incomeRepository = fakeIncomeRepository
         )
         advanceUntilIdle()
 
@@ -272,5 +278,19 @@ class HomeViewModelTest {
         override suspend fun updateExpense(expense: ExpenseEntity) {}
         override suspend fun deleteExpense(expense: ExpenseEntity) {}
         override suspend fun deleteExpenseById(id: String, profileId: String) {}
+    }
+
+    private class FakeIncomeRepository : IncomeRepository {
+        private val _incomeFlow = MutableStateFlow<List<IncomeEntity>>(emptyList())
+        override fun getIncomeForProfileFlow(profileId: String): Flow<List<IncomeEntity>> = _incomeFlow
+        override fun getIncomeBetweenDatesFlow(profileId: String, startDate: Long, endDate: Long): Flow<List<IncomeEntity>> = _incomeFlow
+        override fun getTotalIncomeBetweenDatesFlow(profileId: String, startDate: Long, endDate: Long): Flow<Long> = flowOf(0L)
+        override suspend fun getIncomeBetweenDates(profileId: String, startDate: Long, endDate: Long): List<IncomeEntity> = emptyList()
+        override suspend fun getTotalIncomeBetweenDates(profileId: String, startDate: Long, endDate: Long): Long = 0L
+        override suspend fun getIncomeById(id: String, profileId: String): IncomeEntity? = null
+        override suspend fun createIncome(profileId: String, amount: Amount, currencyCode: String, source: String, incomeDate: Long, accountId: String?, notes: String?): IncomeEntity = throw UnsupportedOperationException()
+        override suspend fun updateIncome(income: IncomeEntity) {}
+        override suspend fun deleteIncome(income: IncomeEntity) {}
+        override suspend fun deleteIncomeById(id: String, profileId: String) {}
     }
 }

@@ -8,9 +8,12 @@ import com.finora.android.core.model.AppCurrency
 import com.finora.android.data.local.relation.ExpenseWithDetails
 import com.finora.android.data.repository.BudgetRepository
 import com.finora.android.data.repository.ExpenseRepository
+import com.finora.android.data.repository.IncomeRepository
 import com.finora.android.data.repository.ProfileRepository
 import com.finora.android.domain.model.BudgetCalculator
 import com.finora.android.domain.model.BudgetSummary
+import com.finora.android.domain.model.CashFlowCalculator
+import com.finora.android.domain.model.CashFlowSummary
 import com.finora.android.ui.screens.home.components.DayRhythm
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,6 +44,7 @@ data class HomeUiState(
     val currencySymbol: String = "₹",
     val monthOutflow: Amount = Amount.ZERO,
     val budgetSummary: BudgetSummary? = null,
+    val cashFlowSummary: CashFlowSummary? = null,
     val todaySpend: Amount = Amount.ZERO,
     val dailyBurnRate: Amount = Amount.ZERO,
     val weeklyRhythm: List<DayRhythm> = emptyList(),
@@ -54,7 +58,8 @@ data class HomeUiState(
 class HomeViewModel(
     private val profileRepository: ProfileRepository = DatabaseModule.profileRepository,
     private val expenseRepository: ExpenseRepository = DatabaseModule.expenseRepository,
-    private val budgetRepository: BudgetRepository = DatabaseModule.budgetRepository
+    private val budgetRepository: BudgetRepository = DatabaseModule.budgetRepository,
+    private val incomeRepository: IncomeRepository = DatabaseModule.incomeRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -131,14 +136,15 @@ class HomeViewModel(
                 )
             }
 
-            // Combine reactive flows: all expenses, month expenses, recent expenses, budget
+            // Combine reactive flows: all expenses, month expenses, recent expenses, budget, month income
             launch {
                 combine(
                     expenseRepository.getAllExpensesFlow(profile.id),
                     expenseRepository.getExpensesByDateRangeFlow(profile.id, startOfMonth, endOfMonth),
                     expenseRepository.getRecentExpensesFlow(profile.id, 4),
-                    budgetRepository.getOverallBudgetFlow(profile.id, currentYearMonth)
-                ) { allExpenses, monthExpenses, recentExpenses, overallBudget ->
+                    budgetRepository.getOverallBudgetFlow(profile.id, currentYearMonth),
+                    incomeRepository.getTotalIncomeBetweenDatesFlow(profile.id, startOfMonth, endOfMonth)
+                ) { allExpenses, monthExpenses, recentExpenses, overallBudget, monthIncomeMinor ->
                     val hasAny = allExpenses.isNotEmpty()
                     val monthTotalUnits = monthExpenses.sumOf { it.expense.amountMinorUnits }
                     val monthOutflow = Amount(monthTotalUnits)
@@ -150,6 +156,12 @@ class HomeViewModel(
                             spentAmount = monthOutflow
                         )
                     }
+
+                    // Cash flow summary
+                    val cashFlowSummary = CashFlowCalculator.calculate(
+                        totalIncome = Amount(monthIncomeMinor),
+                        totalExpenses = monthOutflow
+                    )
 
                     // Today's spend
                     val todayUnits = monthExpenses
@@ -174,6 +186,7 @@ class HomeViewModel(
                         hasExpenses = hasAny,
                         monthOutflow = monthOutflow,
                         budgetSummary = budgetSummary,
+                        cashFlowSummary = cashFlowSummary,
                         todaySpend = todaySpend,
                         dailyBurnRate = dailyBurnRate,
                         peakOutflow = peakOutflow,
@@ -187,6 +200,7 @@ class HomeViewModel(
                             hasExpenses = data.hasExpenses,
                             monthOutflow = data.monthOutflow,
                             budgetSummary = data.budgetSummary,
+                            cashFlowSummary = data.cashFlowSummary,
                             todaySpend = data.todaySpend,
                             dailyBurnRate = data.dailyBurnRate,
                             peakOutflow = data.peakOutflow,
@@ -230,7 +244,7 @@ class HomeViewModel(
         startOfToday: Long
     ): List<DayRhythm> {
         val days = mutableListOf<DayRhythm>()
-        val dayInitialFormat = SimpleDateFormat("EEEEE", Locale.getDefault()) // Single letter: M, T, W, T, F, S, S
+        val dayInitialFormat = SimpleDateFormat("EEEEE", Locale.getDefault())
         val fullDateFormat = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
 
         val daySpends = mutableListOf<Long>()
@@ -275,6 +289,7 @@ class HomeViewModel(
         val hasExpenses: Boolean,
         val monthOutflow: Amount,
         val budgetSummary: BudgetSummary?,
+        val cashFlowSummary: CashFlowSummary?,
         val todaySpend: Amount,
         val dailyBurnRate: Amount,
         val peakOutflow: ExpenseWithDetails?,

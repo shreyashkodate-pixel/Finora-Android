@@ -183,6 +183,10 @@ class RepositoryTest {
         override suspend fun deleteExpenseById(id: String, profileId: String) {
             expenses.removeAll { it.id == id && it.profileId == profileId }
         }
+
+        override suspend fun getAllExpenses(): List<ExpenseEntity> = expenses
+        override suspend fun deleteAllExpenses() { expenses.clear() }
+        override suspend fun insertExpenses(expenses: List<ExpenseEntity>) { this.expenses.addAll(expenses) }
     }
 
     private class FakeCategoryDao : CategoryDao {
@@ -210,6 +214,9 @@ class RepositoryTest {
         override suspend fun deleteCategory(category: CategoryEntity) {
             categories.removeAll { it.id == category.id }
         }
+
+        override suspend fun getAllCategories(): List<CategoryEntity> = categories
+        override suspend fun deleteAllCategories() { categories.clear() }
     }
 
     private class FakePaymentMethodDao : PaymentMethodDao {
@@ -225,6 +232,9 @@ class RepositoryTest {
             if (idx >= 0) this.paymentMethods[idx] = paymentMethod
         }
         override suspend fun deletePaymentMethod(paymentMethod: PaymentMethodEntity) { this.paymentMethods.removeAll { it.id == paymentMethod.id } }
+
+        override suspend fun getAllPaymentMethods(): List<PaymentMethodEntity> = paymentMethods
+        override suspend fun deleteAllPaymentMethods() { paymentMethods.clear() }
     }
 
     private class FakeProfileDao : ProfileDao {
@@ -238,5 +248,8 @@ class RepositoryTest {
         override suspend fun updateThemeMode(id: String, themeMode: String) { profile = profile?.copy(themeMode = themeMode) }
         override suspend fun updateCurrencyCode(id: String, currencyCode: String) { profile = profile?.copy(currencyCode = currencyCode) }
         override suspend fun updateProfileName(id: String, name: String, updatedAt: Long) { profile = profile?.copy(name = name, updatedAt = updatedAt) }
+
+        override suspend fun getAllProfiles(): List<ProfileEntity> = listOfNotNull(profile)
+        override suspend fun deleteAllProfiles() { profile = null }
     }
 }

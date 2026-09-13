@@ -2,15 +2,19 @@ package com.finora.android.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Paid
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
- * Navigation routes for Finora V1.0.
+ * Navigation routes for Finora V1.0 to V1.2.
  */
 sealed class Screen(
     val route: String,
@@ -25,6 +29,13 @@ sealed class Screen(
     data object Analytics : Screen("analytics", "Analytics", Icons.Default.BarChart)
     data object Settings : Screen("settings", "Settings", Icons.Default.Settings)
     data object CategoryManagement : Screen("categories")
+
+    // V1.2 Routes
+    data object Income : Screen("income", "Income", Icons.Default.Paid)
+    data object AddIncome : Screen("add_income", "Add Income")
+    data object Accounts : Screen("accounts", "Accounts", Icons.Default.AccountBalance)
+    data object Recurring : Screen("recurring", "Subscriptions", Icons.Default.Repeat)
+    data object Savings : Screen("savings", "Savings", Icons.Default.Savings)
 
     data object ExpenseDetail : Screen("expense_detail/{expenseId}") {
         fun createRoute(expenseId: String) = "expense_detail/$expenseId"

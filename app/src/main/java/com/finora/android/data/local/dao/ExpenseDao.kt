@@ -128,4 +128,13 @@ interface ExpenseDao {
 
     @Query("DELETE FROM expenses WHERE id = :id AND profileId = :profileId")
     suspend fun deleteExpenseById(id: String, profileId: String)
+
+    @Query("SELECT * FROM expenses")
+    suspend fun getAllExpenses(): List<ExpenseEntity>
+
+    @Query("DELETE FROM expenses")
+    suspend fun deleteAllExpenses()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExpenses(expenses: List<ExpenseEntity>)
 }
