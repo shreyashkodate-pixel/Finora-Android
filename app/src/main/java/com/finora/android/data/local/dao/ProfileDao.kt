@@ -34,8 +34,17 @@ interface ProfileDao {
     @Query("UPDATE profiles SET name = :name, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateProfileName(id: String, name: String, updatedAt: Long = System.currentTimeMillis())
 
+    @Query("SELECT * FROM profiles WHERE id = :id LIMIT 1")
+    fun getProfileByIdFlow(id: String): Flow<ProfileEntity?>
+
     @Query("SELECT * FROM profiles")
     suspend fun getAllProfiles(): List<ProfileEntity>
+
+    @Query("SELECT * FROM profiles ORDER BY createdAt ASC")
+    fun getAllProfilesFlow(): Flow<List<ProfileEntity>>
+
+    @Query("DELETE FROM profiles WHERE id = :id")
+    suspend fun deleteProfileById(id: String)
 
     @Query("DELETE FROM profiles")
     suspend fun deleteAllProfiles()

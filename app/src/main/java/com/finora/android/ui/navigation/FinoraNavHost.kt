@@ -77,7 +77,20 @@ fun FinoraNavHost(
         Screen.AddIncome.route,
         Screen.Accounts.route,
         Screen.Recurring.route,
-        Screen.Savings.route
+        Screen.Savings.route,
+        Screen.NotificationSettings.route,
+        Screen.ReceiptScan.route,
+        Screen.VoiceEntry.route,
+        Screen.QuickAdd.route,
+        Screen.ShareImport.route,
+        Screen.FinancialHealth.route,
+        Screen.AnomalyGuard.route,
+        Screen.NetWorth.route,
+        Screen.StatementReconciliation.route,
+        Screen.TravelMode.route,
+        Screen.FinancialCoach.route,
+        Screen.PurchaseSimulator.route,
+        Screen.MerkleAudit.route
     )
 
     val isExpenseDetail = currentRoute?.startsWith("expense_detail") == true
@@ -139,7 +152,13 @@ fun FinoraNavHost(
                     onNavigateToIncome = { navController.navigate(Screen.Income.route) },
                     onNavigateToAccounts = { navController.navigate(Screen.Accounts.route) },
                     onNavigateToRecurring = { navController.navigate(Screen.Recurring.route) },
-                    onNavigateToSavings = { navController.navigate(Screen.Savings.route) }
+                    onNavigateToSavings = { navController.navigate(Screen.Savings.route) },
+                    onNavigateToQuickAdd = { navController.navigate(Screen.QuickAdd.route) },
+                    onNavigateToHealth = { navController.navigate(Screen.FinancialHealth.route) },
+                    onNavigateToSimulator = { navController.navigate(Screen.PurchaseSimulator.route) },
+                    onNavigateToCoach = { navController.navigate(Screen.FinancialCoach.route) },
+                    onNavigateToReceiptScan = { navController.navigate(Screen.ReceiptScan.route) },
+                    onNavigateToVoiceEntry = { navController.navigate(Screen.VoiceEntry.route) }
                 )
             }
             composable(Screen.Expenses.route) {
@@ -245,7 +264,13 @@ fun FinoraNavHost(
             composable(Screen.Settings.route) {
                 com.finora.android.ui.screens.settings.SettingsScreen(
                     onNavigateToCategories = { navController.navigate(Screen.CategoryManagement.route) },
-                    onNavigateToBudgets = { navController.navigate(Screen.Budgets.route) }
+                    onNavigateToBudgets = { navController.navigate(Screen.Budgets.route) },
+                    onNavigateToNotifications = { navController.navigate(Screen.NotificationSettings.route) },
+                    onNavigateToNetWorth = { navController.navigate(Screen.NetWorth.route) },
+                    onNavigateToReconciliation = { navController.navigate(Screen.StatementReconciliation.route) },
+                    onNavigateToTravelMode = { navController.navigate(Screen.TravelMode.route) },
+                    onNavigateToAudit = { navController.navigate(Screen.MerkleAudit.route) },
+                    onNavigateToAnomalyGuard = { navController.navigate(Screen.AnomalyGuard.route) }
                 )
             }
             composable(Screen.CategoryManagement.route) {
@@ -278,6 +303,103 @@ fun FinoraNavHost(
             }
             composable(Screen.Savings.route) {
                 com.finora.android.ui.screens.savings.SavingsScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // V2.0 & V3.0 Screen Composables
+            composable(Screen.NotificationSettings.route) {
+                com.finora.android.ui.screens.notifications.NotificationSettingsScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.ReceiptScan.route) {
+                com.finora.android.ui.screens.assisted.ReceiptScanScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onExpenseSaved = {
+                        navController.navigate(Screen.Expenses.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+            composable(Screen.VoiceEntry.route) {
+                com.finora.android.ui.screens.assisted.VoiceEntryScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onExpenseSaved = {
+                        navController.navigate(Screen.Expenses.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+            composable(Screen.QuickAdd.route) {
+                com.finora.android.ui.screens.assisted.NaturalLanguageQuickAddScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onExpenseSaved = {
+                        navController.navigate(Screen.Expenses.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+            composable(Screen.ShareImport.route) {
+                com.finora.android.ui.screens.assisted.ShareImportPreviewScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onExpenseSaved = {
+                        navController.navigate(Screen.Expenses.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+            composable(Screen.FinancialHealth.route) {
+                com.finora.android.ui.screens.health.FinancialHealthScoreScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.AnomalyGuard.route) {
+                com.finora.android.ui.screens.anomaly.AnomalyGuardScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.NetWorth.route) {
+                com.finora.android.ui.screens.networth.NetWorthScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.StatementReconciliation.route) {
+                com.finora.android.ui.screens.statement.StatementReconciliationScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onReconciled = {
+                        navController.navigate(Screen.Expenses.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+            composable(Screen.TravelMode.route) {
+                com.finora.android.ui.screens.travel.TravelModeScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.FinancialCoach.route) {
+                com.finora.android.ui.screens.coach.FinancialCoachScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.PurchaseSimulator.route) {
+                com.finora.android.ui.screens.simulator.PurchaseSimulatorScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.MerkleAudit.route) {
+                com.finora.android.ui.screens.audit.MerkleAuditScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

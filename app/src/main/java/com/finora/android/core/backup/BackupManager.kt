@@ -43,7 +43,9 @@ data class BackupPreview(
 
 enum class RestoreMode {
     REPLACE,
-    MERGE
+    MERGE,
+    IMPORT_AS_NEW_PROFILE,
+    IMPORT_INTO_CURRENT_PROFILE
 }
 
 class InvalidBackupPasswordException : Exception("Incorrect backup password or corrupted backup file.")
@@ -68,21 +70,62 @@ class BackupManager(private val database: FinoraDatabase? = null) {
         private const val KEY_LENGTH = 256
     }
 
-    suspend fun createBackup(password: String, outputStream: OutputStream) {
+    suspend fun createBackup(password: String, outputStream: OutputStream, profileId: String? = null) {
         val db = checkNotNull(database) { "Database required for creating backup" }
         require(password.isNotEmpty()) { "Backup password cannot be empty" }
 
-        // 1. Collect all local data
-        val profiles = db.profileDao().getAllProfiles()
-        val categories = db.categoryDao().getAllCategories()
-        val paymentMethods = db.paymentMethodDao().getAllPaymentMethods()
-        val expenses = db.expenseDao().getAllExpenses()
-        val budgets = db.budgetDao().getAllBudgets()
-        val accounts = db.accountDao().getAllAccounts()
-        val income = db.incomeDao().getAllIncome()
-        val recurring = db.recurringExpenseDao().getAllRecurring()
-        val savingsGoals = db.savingsGoalDao().getAllGoals()
-        val savingsContributions = db.savingsGoalDao().getAllContributions()
+        // 1. Collect all local data (scoped to profileId if specified)
+        val profiles = if (profileId != null) {
+            db.profileDao().getAllProfiles().filter { it.id == profileId }
+        } else {
+            db.profileDao().getAllProfiles()
+        }
+        val categories = if (profileId != null) {
+            db.categoryDao().getAllCategories().filter { it.profileId == profileId }
+        } else {
+            db.categoryDao().getAllCategories()
+        }
+        val paymentMethods = if (profileId != null) {
+            db.paymentMethodDao().getAllPaymentMethods().filter { it.profileId == profileId }
+        } else {
+            db.paymentMethodDao().getAllPaymentMethods()
+        }
+        val expenses = if (profileId != null) {
+            db.expenseDao().getAllExpenses().filter { it.profileId == profileId }
+        } else {
+            db.expenseDao().getAllExpenses()
+        }
+        val budgets = if (profileId != null) {
+            db.budgetDao().getAllBudgets().filter { it.profileId == profileId }
+        } else {
+            db.budgetDao().getAllBudgets()
+        }
+        val accounts = if (profileId != null) {
+            db.accountDao().getAllAccounts().filter { it.profileId == profileId }
+        } else {
+            db.accountDao().getAllAccounts()
+        }
+        val income = if (profileId != null) {
+            db.incomeDao().getAllIncome().filter { it.profileId == profileId }
+        } else {
+            db.incomeDao().getAllIncome()
+        }
+        val recurring = if (profileId != null) {
+            db.recurringExpenseDao().getAllRecurring().filter { it.profileId == profileId }
+        } else {
+            db.recurringExpenseDao().getAllRecurring()
+        }
+        val savingsGoals = if (profileId != null) {
+            db.savingsGoalDao().getAllGoals().filter { it.profileId == profileId }
+        } else {
+            db.savingsGoalDao().getAllGoals()
+        }
+        val goalIds = savingsGoals.map { it.id }.toSet()
+        val savingsContributions = if (profileId != null) {
+            db.savingsGoalDao().getAllContributions().filter { it.goalId in goalIds }
+        } else {
+            db.savingsGoalDao().getAllContributions()
+        }
 
         // 2. Build JSON package
         val root = JSONObject()
@@ -347,9 +390,510 @@ class BackupManager(private val database: FinoraDatabase? = null) {
         return Pair(preview, json)
     }
 
-    suspend fun restoreFromDecryptedJson(json: JSONObject, mode: RestoreMode) {
+    suspend fun restoreFromDecryptedJson(
+        json: JSONObject,
+        mode: RestoreMode,
+        targetProfileId: String? = null,
+        newProfileName: String? = null
+    ): String? {
         val db = checkNotNull(database) { "Database required for restoring backup" }
-        db.withTransaction {
+        return db.withTransaction {
+            if (mode == RestoreMode.IMPORT_INTO_CURRENT_PROFILE) {
+                val profId = targetProfileId ?: db.profileDao().getActiveProfile()?.id ?: return@withTransaction null
+                val targetProfile = db.profileDao().getProfileById(profId) ?: return@withTransaction null
+                val currencyCode = targetProfile.currencyCode
+
+                val existingCategories = db.categoryDao().getCategories(profId)
+                val existingAccounts = db.accountDao().getActiveAccounts(profId)
+                val existingPaymentMethods = db.paymentMethodDao().getPaymentMethods(profId)
+                val existingGoals = db.savingsGoalDao().getGoalsByProfileId(profId)
+
+                val categoryIdMap = mutableMapOf<String, String>()
+                val paymentMethodIdMap = mutableMapOf<String, String>()
+                val accountIdMap = mutableMapOf<String, String>()
+                val goalIdMap = mutableMapOf<String, String>()
+
+                // 1. Categories
+                val categoriesArr = json.optJSONArray("categories") ?: JSONArray()
+                for (i in 0 until categoriesArr.length()) {
+                    val obj = categoriesArr.getJSONObject(i)
+                    val oldId = obj.getString("id")
+                    val catName = obj.getString("name")
+                    val matched = existingCategories.find { it.name.equals(catName, ignoreCase = true) }
+                    if (matched != null) {
+                        categoryIdMap[oldId] = matched.id
+                    } else {
+                        val newId = java.util.UUID.randomUUID().toString()
+                        categoryIdMap[oldId] = newId
+                        db.categoryDao().insertCategory(
+                            CategoryEntity(
+                                id = newId,
+                                profileId = profId,
+                                name = catName,
+                                iconName = obj.getString("iconName"),
+                                colorHex = obj.getString("colorHex"),
+                                isDefault = false,
+                                displayOrder = obj.optInt("displayOrder", 0),
+                                createdAt = System.currentTimeMillis(),
+                                updatedAt = System.currentTimeMillis()
+                            )
+                        )
+                    }
+                }
+
+                // 2. Payment Methods
+                val pmArr = json.optJSONArray("paymentMethods") ?: JSONArray()
+                for (i in 0 until pmArr.length()) {
+                    val obj = pmArr.getJSONObject(i)
+                    val oldId = obj.getString("id")
+                    val pmName = obj.getString("name")
+                    val matched = existingPaymentMethods.find { it.name.equals(pmName, ignoreCase = true) }
+                    if (matched != null) {
+                        paymentMethodIdMap[oldId] = matched.id
+                    } else {
+                        val newId = java.util.UUID.randomUUID().toString()
+                        paymentMethodIdMap[oldId] = newId
+                        db.paymentMethodDao().insertPaymentMethod(
+                            PaymentMethodEntity(
+                                id = newId,
+                                profileId = profId,
+                                name = pmName,
+                                type = obj.optString("type", "CASH"),
+                                isDefault = false,
+                                createdAt = System.currentTimeMillis(),
+                                updatedAt = System.currentTimeMillis()
+                            )
+                        )
+                    }
+                }
+
+                // 3. Accounts
+                val accountsArr = json.optJSONArray("accounts") ?: JSONArray()
+                for (i in 0 until accountsArr.length()) {
+                    val obj = accountsArr.getJSONObject(i)
+                    val oldId = obj.getString("id")
+                    val accName = obj.getString("name")
+                    val matched = existingAccounts.find { it.name.equals(accName, ignoreCase = true) }
+                    if (matched != null) {
+                        accountIdMap[oldId] = matched.id
+                    } else {
+                        val newId = java.util.UUID.randomUUID().toString()
+                        accountIdMap[oldId] = newId
+                        db.accountDao().insertAccount(
+                            AccountEntity(
+                                id = newId,
+                                profileId = profId,
+                                name = accName,
+                                type = obj.optString("type", "BANK_ACCOUNT"),
+                                initialBalanceMinorUnits = obj.optLong("initialBalanceMinorUnits", 0L),
+                                colorHex = obj.optString("colorHex", "#1E88E5"),
+                                iconName = obj.optString("iconName", "AccountBalance"),
+                                isDefault = false,
+                                isArchived = false,
+                                createdAt = System.currentTimeMillis(),
+                                updatedAt = System.currentTimeMillis()
+                            )
+                        )
+                    }
+                }
+
+                // 4. Expenses
+                val expensesArr = json.optJSONArray("expenses") ?: JSONArray()
+                for (i in 0 until expensesArr.length()) {
+                    val obj = expensesArr.getJSONObject(i)
+                    val oldCatId = obj.getString("categoryId")
+                    val mappedCatId = categoryIdMap[oldCatId] ?: existingCategories.firstOrNull()?.id ?: continue
+                    val oldPmId = if (obj.isNull("paymentMethodId")) null else obj.optString("paymentMethodId", "").takeIf { it.isNotEmpty() }
+                    val mappedPmId = oldPmId?.let { paymentMethodIdMap[it] }
+
+                    db.expenseDao().insertExpense(
+                        ExpenseEntity(
+                            id = java.util.UUID.randomUUID().toString(),
+                            profileId = profId,
+                            amountMinorUnits = obj.getLong("amountMinorUnits"),
+                            currencyCode = obj.optString("currencyCode", currencyCode),
+                            categoryId = mappedCatId,
+                            paymentMethodId = mappedPmId,
+                            expenseDate = obj.getLong("expenseDate"),
+                            title = if (obj.isNull("title")) null else obj.getString("title"),
+                            notes = if (obj.isNull("notes")) null else obj.getString("notes"),
+                            attachmentUri = if (obj.isNull("attachmentUri")) null else obj.getString("attachmentUri"),
+                            source = obj.optString("source", "BACKUP_IMPORT"),
+                            isRecurring = obj.optBoolean("isRecurring", false),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                            updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+
+                // 5. Budgets
+                val budgetsArr = json.optJSONArray("budgets") ?: JSONArray()
+                for (i in 0 until budgetsArr.length()) {
+                    val obj = budgetsArr.getJSONObject(i)
+                    val oldCatId = if (obj.isNull("categoryId")) null else obj.optString("categoryId", "").takeIf { it.isNotEmpty() }
+                    val mappedCatId = oldCatId?.let { categoryIdMap[it] }
+
+                    db.budgetDao().upsertBudget(
+                        BudgetEntity(
+                            id = java.util.UUID.randomUUID().toString(),
+                            profileId = profId,
+                            yearMonth = obj.getString("yearMonth"),
+                            categoryId = mappedCatId,
+                            amountMinorUnits = obj.getLong("amountMinorUnits"),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                            updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+
+                // 6. Income
+                val incomeArr = json.optJSONArray("income") ?: JSONArray()
+                for (i in 0 until incomeArr.length()) {
+                    val obj = incomeArr.getJSONObject(i)
+                    val oldAccId = if (obj.isNull("accountId")) null else obj.optString("accountId", "").takeIf { it.isNotEmpty() }
+                    val mappedAccId = oldAccId?.let { accountIdMap[it] }
+
+                    db.incomeDao().insertIncome(
+                        IncomeEntity(
+                            id = java.util.UUID.randomUUID().toString(),
+                            profileId = profId,
+                            amountMinorUnits = obj.getLong("amountMinorUnits"),
+                            currencyCode = obj.optString("currencyCode", currencyCode),
+                            source = obj.getString("source"),
+                            incomeDate = obj.getLong("incomeDate"),
+                            accountId = mappedAccId,
+                            notes = if (obj.isNull("notes")) null else obj.getString("notes"),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                            updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+
+                // 7. Recurring Expenses
+                val recurringArr = json.optJSONArray("recurring") ?: JSONArray()
+                for (i in 0 until recurringArr.length()) {
+                    val obj = recurringArr.getJSONObject(i)
+                    val oldCatId = obj.getString("categoryId")
+                    val mappedCatId = categoryIdMap[oldCatId] ?: continue
+                    val oldAccId = if (obj.isNull("accountId")) null else obj.optString("accountId", "").takeIf { it.isNotEmpty() }
+                    val mappedAccId = oldAccId?.let { accountIdMap[it] }
+
+                    db.recurringExpenseDao().insertRecurring(
+                        RecurringExpenseEntity(
+                            id = java.util.UUID.randomUUID().toString(),
+                            profileId = profId,
+                            title = obj.getString("title"),
+                            amountMinorUnits = obj.getLong("amountMinorUnits"),
+                            currencyCode = obj.optString("currencyCode", currencyCode),
+                            categoryId = mappedCatId,
+                            frequency = obj.getString("frequency"),
+                            startDate = obj.getLong("startDate"),
+                            nextDueDate = obj.getLong("nextDueDate"),
+                            accountId = mappedAccId,
+                            isActive = obj.optBoolean("isActive", true),
+                            autoLog = obj.optBoolean("autoLog", false),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                            updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+
+                // 8. Savings Goals
+                val savingsGoalsArr = json.optJSONArray("savingsGoals") ?: JSONArray()
+                for (i in 0 until savingsGoalsArr.length()) {
+                    val obj = savingsGoalsArr.getJSONObject(i)
+                    val oldId = obj.getString("id")
+                    val goalName = obj.getString("name")
+                    val matched = existingGoals.find { it.name.equals(goalName, ignoreCase = true) }
+                    if (matched != null) {
+                        goalIdMap[oldId] = matched.id
+                    } else {
+                        val newId = java.util.UUID.randomUUID().toString()
+                        goalIdMap[oldId] = newId
+                        db.savingsGoalDao().insertGoal(
+                            SavingsGoalEntity(
+                                id = newId,
+                                profileId = profId,
+                                name = goalName,
+                                targetAmountMinorUnits = obj.getLong("targetAmountMinorUnits"),
+                                currencyCode = obj.optString("currencyCode", currencyCode),
+                                targetDate = if (obj.isNull("targetDate")) null else obj.getLong("targetDate"),
+                                templateType = obj.optString("templateType", "CUSTOM"),
+                                colorHex = obj.optString("colorHex", "#4CAF50"),
+                                iconName = obj.optString("iconName", "Savings"),
+                                isCompleted = obj.optBoolean("isCompleted", false),
+                                createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                                updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                            )
+                        )
+                    }
+                }
+
+                // 9. Savings Contributions
+                val contributionsArr = json.optJSONArray("savingsContributions") ?: JSONArray()
+                for (i in 0 until contributionsArr.length()) {
+                    val obj = contributionsArr.getJSONObject(i)
+                    val oldGoalId = obj.getString("goalId")
+                    val mappedGoalId = goalIdMap[oldGoalId] ?: continue
+
+                    db.savingsGoalDao().insertContribution(
+                        SavingsContributionEntity(
+                            id = java.util.UUID.randomUUID().toString(),
+                            goalId = mappedGoalId,
+                            profileId = profId,
+                            amountMinorUnits = obj.getLong("amountMinorUnits"),
+                            contributionDate = obj.getLong("contributionDate"),
+                            type = obj.optString("type", "DEPOSIT"),
+                            notes = if (obj.isNull("notes")) null else obj.getString("notes"),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+
+                return@withTransaction profId
+            }
+
+            if (mode == RestoreMode.IMPORT_AS_NEW_PROFILE) {
+                val profilesArr = json.optJSONArray("profiles") ?: JSONArray()
+                val srcProfileObj = if (profilesArr.length() > 0) profilesArr.getJSONObject(0) else null
+                val newProfileId = java.util.UUID.randomUUID().toString()
+                val srcName = srcProfileObj?.optString("name", "Imported User") ?: "Imported User"
+                val finalProfileName = newProfileName?.takeIf { it.isNotBlank() } ?: "$srcName (Imported)"
+                val currencyCode = srcProfileObj?.optString("currencyCode", "INR") ?: "INR"
+                val themeMode = srcProfileObj?.optString("themeMode", "SYSTEM") ?: "SYSTEM"
+
+                val newProfile = ProfileEntity(
+                    id = newProfileId,
+                    name = finalProfileName,
+                    currencyCode = currencyCode,
+                    themeMode = themeMode,
+                    createdAt = System.currentTimeMillis(),
+                    updatedAt = System.currentTimeMillis()
+                )
+                db.profileDao().insertProfile(newProfile)
+
+                val categoryIdMap = mutableMapOf<String, String>()
+                val paymentMethodIdMap = mutableMapOf<String, String>()
+                val accountIdMap = mutableMapOf<String, String>()
+                val goalIdMap = mutableMapOf<String, String>()
+
+                // 1. Categories
+                val categoriesArr = json.optJSONArray("categories") ?: JSONArray()
+                for (i in 0 until categoriesArr.length()) {
+                    val obj = categoriesArr.getJSONObject(i)
+                    val oldId = obj.getString("id")
+                    val newId = java.util.UUID.randomUUID().toString()
+                    categoryIdMap[oldId] = newId
+                    db.categoryDao().insertCategory(
+                        CategoryEntity(
+                            id = newId,
+                            profileId = newProfileId,
+                            name = obj.getString("name"),
+                            iconName = obj.getString("iconName"),
+                            colorHex = obj.getString("colorHex"),
+                            isDefault = obj.optBoolean("isDefault", false),
+                            displayOrder = obj.optInt("displayOrder", 0),
+                            createdAt = System.currentTimeMillis(),
+                            updatedAt = System.currentTimeMillis()
+                        )
+                    )
+                }
+
+                // 2. Payment Methods
+                val pmArr = json.optJSONArray("paymentMethods") ?: JSONArray()
+                for (i in 0 until pmArr.length()) {
+                    val obj = pmArr.getJSONObject(i)
+                    val oldId = obj.getString("id")
+                    val newId = java.util.UUID.randomUUID().toString()
+                    paymentMethodIdMap[oldId] = newId
+                    db.paymentMethodDao().insertPaymentMethod(
+                        PaymentMethodEntity(
+                            id = newId,
+                            profileId = newProfileId,
+                            name = obj.getString("name"),
+                            type = obj.optString("type", "CASH"),
+                            isDefault = obj.optBoolean("isDefault", false),
+                            createdAt = System.currentTimeMillis(),
+                            updatedAt = System.currentTimeMillis()
+                        )
+                    )
+                }
+
+                // 3. Accounts
+                val accountsArr = json.optJSONArray("accounts") ?: JSONArray()
+                for (i in 0 until accountsArr.length()) {
+                    val obj = accountsArr.getJSONObject(i)
+                    val oldId = obj.getString("id")
+                    val newId = java.util.UUID.randomUUID().toString()
+                    accountIdMap[oldId] = newId
+                    db.accountDao().insertAccount(
+                        AccountEntity(
+                            id = newId,
+                            profileId = newProfileId,
+                            name = obj.getString("name"),
+                            type = obj.optString("type", "BANK_ACCOUNT"),
+                            initialBalanceMinorUnits = obj.optLong("initialBalanceMinorUnits", 0L),
+                            colorHex = obj.optString("colorHex", "#1E88E5"),
+                            iconName = obj.optString("iconName", "AccountBalance"),
+                            isDefault = obj.optBoolean("isDefault", false),
+                            isArchived = obj.optBoolean("isArchived", false),
+                            createdAt = System.currentTimeMillis(),
+                            updatedAt = System.currentTimeMillis()
+                        )
+                    )
+                }
+
+                // 4. Expenses
+                val expensesArr = json.optJSONArray("expenses") ?: JSONArray()
+                for (i in 0 until expensesArr.length()) {
+                    val obj = expensesArr.getJSONObject(i)
+                    val oldCatId = obj.getString("categoryId")
+                    val mappedCatId = categoryIdMap[oldCatId] ?: continue
+                    val oldPmId = if (obj.isNull("paymentMethodId")) null else obj.optString("paymentMethodId", "").takeIf { it.isNotEmpty() }
+                    val mappedPmId = oldPmId?.let { paymentMethodIdMap[it] }
+
+                    db.expenseDao().insertExpense(
+                        ExpenseEntity(
+                            id = java.util.UUID.randomUUID().toString(),
+                            profileId = newProfileId,
+                            amountMinorUnits = obj.getLong("amountMinorUnits"),
+                            currencyCode = obj.optString("currencyCode", currencyCode),
+                            categoryId = mappedCatId,
+                            paymentMethodId = mappedPmId,
+                            expenseDate = obj.getLong("expenseDate"),
+                            title = if (obj.isNull("title")) null else obj.getString("title"),
+                            notes = if (obj.isNull("notes")) null else obj.getString("notes"),
+                            attachmentUri = if (obj.isNull("attachmentUri")) null else obj.getString("attachmentUri"),
+                            source = obj.optString("source", "MANUAL"),
+                            isRecurring = obj.optBoolean("isRecurring", false),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                            updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+
+                // 5. Budgets
+                val budgetsArr = json.optJSONArray("budgets") ?: JSONArray()
+                for (i in 0 until budgetsArr.length()) {
+                    val obj = budgetsArr.getJSONObject(i)
+                    val oldCatId = if (obj.isNull("categoryId")) null else obj.optString("categoryId", "").takeIf { it.isNotEmpty() }
+                    val mappedCatId = oldCatId?.let { categoryIdMap[it] }
+
+                    db.budgetDao().upsertBudget(
+                        BudgetEntity(
+                            id = java.util.UUID.randomUUID().toString(),
+                            profileId = newProfileId,
+                            yearMonth = obj.getString("yearMonth"),
+                            categoryId = mappedCatId,
+                            amountMinorUnits = obj.getLong("amountMinorUnits"),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                            updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+
+                // 6. Income
+                val incomeArr = json.optJSONArray("income") ?: JSONArray()
+                for (i in 0 until incomeArr.length()) {
+                    val obj = incomeArr.getJSONObject(i)
+                    val oldAccId = if (obj.isNull("accountId")) null else obj.optString("accountId", "").takeIf { it.isNotEmpty() }
+                    val mappedAccId = oldAccId?.let { accountIdMap[it] }
+
+                    db.incomeDao().insertIncome(
+                        IncomeEntity(
+                            id = java.util.UUID.randomUUID().toString(),
+                            profileId = newProfileId,
+                            amountMinorUnits = obj.getLong("amountMinorUnits"),
+                            currencyCode = obj.optString("currencyCode", currencyCode),
+                            source = obj.getString("source"),
+                            incomeDate = obj.getLong("incomeDate"),
+                            accountId = mappedAccId,
+                            notes = if (obj.isNull("notes")) null else obj.getString("notes"),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                            updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+
+                // 7. Recurring Expenses
+                val recurringArr = json.optJSONArray("recurring") ?: JSONArray()
+                for (i in 0 until recurringArr.length()) {
+                    val obj = recurringArr.getJSONObject(i)
+                    val oldCatId = obj.getString("categoryId")
+                    val mappedCatId = categoryIdMap[oldCatId] ?: continue
+                    val oldAccId = if (obj.isNull("accountId")) null else obj.optString("accountId", "").takeIf { it.isNotEmpty() }
+                    val mappedAccId = oldAccId?.let { accountIdMap[it] }
+
+                    db.recurringExpenseDao().insertRecurring(
+                        RecurringExpenseEntity(
+                            id = java.util.UUID.randomUUID().toString(),
+                            profileId = newProfileId,
+                            title = obj.getString("title"),
+                            amountMinorUnits = obj.getLong("amountMinorUnits"),
+                            currencyCode = obj.optString("currencyCode", currencyCode),
+                            categoryId = mappedCatId,
+                            frequency = obj.getString("frequency"),
+                            startDate = obj.getLong("startDate"),
+                            nextDueDate = obj.getLong("nextDueDate"),
+                            accountId = mappedAccId,
+                            isActive = obj.optBoolean("isActive", true),
+                            autoLog = obj.optBoolean("autoLog", false),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                            updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+
+                // 8. Savings Goals
+                val savingsGoalsArr = json.optJSONArray("savingsGoals") ?: JSONArray()
+                for (i in 0 until savingsGoalsArr.length()) {
+                    val obj = savingsGoalsArr.getJSONObject(i)
+                    val oldId = obj.getString("id")
+                    val newId = java.util.UUID.randomUUID().toString()
+                    goalIdMap[oldId] = newId
+
+                    db.savingsGoalDao().insertGoal(
+                        SavingsGoalEntity(
+                            id = newId,
+                            profileId = newProfileId,
+                            name = obj.getString("name"),
+                            targetAmountMinorUnits = obj.getLong("targetAmountMinorUnits"),
+                            currencyCode = obj.optString("currencyCode", currencyCode),
+                            targetDate = if (obj.isNull("targetDate")) null else obj.getLong("targetDate"),
+                            templateType = obj.optString("templateType", "CUSTOM"),
+                            colorHex = obj.optString("colorHex", "#4CAF50"),
+                            iconName = obj.optString("iconName", "Savings"),
+                            isCompleted = obj.optBoolean("isCompleted", false),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                            updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+
+                // 9. Savings Contributions
+                val contributionsArr = json.optJSONArray("savingsContributions") ?: JSONArray()
+                for (i in 0 until contributionsArr.length()) {
+                    val obj = contributionsArr.getJSONObject(i)
+                    val oldGoalId = obj.getString("goalId")
+                    val mappedGoalId = goalIdMap[oldGoalId] ?: continue
+
+                    db.savingsGoalDao().insertContribution(
+                        SavingsContributionEntity(
+                            id = java.util.UUID.randomUUID().toString(),
+                            goalId = mappedGoalId,
+                            profileId = newProfileId,
+                            amountMinorUnits = obj.getLong("amountMinorUnits"),
+                            contributionDate = obj.getLong("contributionDate"),
+                            type = obj.optString("type", "DEPOSIT"),
+                            notes = if (obj.isNull("notes")) null else obj.getString("notes"),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+
+                return@withTransaction newProfileId
+            }
+
             if (mode == RestoreMode.REPLACE) {
                 // Clear existing records cleanly (reverse foreign key order)
                 db.savingsGoalDao().deleteAllContributions()
@@ -561,6 +1105,7 @@ class BackupManager(private val database: FinoraDatabase? = null) {
                     )
                 )
             }
+            null
         }
     }
 

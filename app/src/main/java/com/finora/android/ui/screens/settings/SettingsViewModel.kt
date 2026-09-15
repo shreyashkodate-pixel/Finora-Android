@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class SettingsUiState(
+    val activeProfileId: String = "",
     val profileName: String = "Arjun Sharma",
     val profileInitials: String = "AS",
     val localIdentifier: String = "user@device.local",
@@ -24,12 +25,15 @@ data class SettingsUiState(
     val currencySymbol: String = "₹",
     val currencyDisplayName: String = "INR — Indian Rupee (₹)",
     val themeMode: String = "SYSTEM",
+    val allProfiles: List<com.finora.android.data.local.entity.ProfileEntity> = emptyList(),
     val totalCategoriesCount: Int = 0,
     val customCategoriesCount: Int = 0,
     val totalPaymentMethodsCount: Int = 0,
     val showCurrencyDialog: Boolean = false,
     val showEditNameDialog: Boolean = false,
     val showInfoDialog: Boolean = false,
+    val showProfileSwitcherDialog: Boolean = false,
+    val showCreateProfileDialog: Boolean = false,
     val isLoading: Boolean = true,
     val userMessage: String? = null
 )
@@ -59,9 +63,10 @@ class SettingsViewModel(
                 .filterNotNull()
                 .flatMapLatest { p ->
                     combine(
+                        profileRepository.getAllProfilesFlow(),
                         categoryRepository.getCategoriesFlow(p.id),
                         paymentMethodRepository.getPaymentMethodsFlow(p.id)
-                    ) { categories, methods ->
+                    ) { allProfiles, categories, methods ->
                         val currency = AppCurrency.fromCode(p.currencyCode)
                         val initials = computeInitials(p.name)
                         val sanitizedName = p.name.lowercase().replace(" ", ".")
@@ -69,6 +74,7 @@ class SettingsViewModel(
                         val customCats = categories.count { !it.isDefault }
 
                         SettingsUiState(
+                            activeProfileId = p.id,
                             profileName = p.name,
                             profileInitials = initials,
                             localIdentifier = "$sanitizedName@device.local",
@@ -76,12 +82,15 @@ class SettingsViewModel(
                             currencySymbol = currency.symbol,
                             currencyDisplayName = "${currency.code} — ${currency.displayName} (${currency.symbol})",
                             themeMode = p.themeMode,
+                            allProfiles = allProfiles,
                             totalCategoriesCount = categories.size,
                             customCategoriesCount = customCats,
                             totalPaymentMethodsCount = methods.size,
                             showCurrencyDialog = _uiState.value.showCurrencyDialog,
                             showEditNameDialog = _uiState.value.showEditNameDialog,
                             showInfoDialog = _uiState.value.showInfoDialog,
+                            showProfileSwitcherDialog = _uiState.value.showProfileSwitcherDialog,
+                            showCreateProfileDialog = _uiState.value.showCreateProfileDialog,
                             isLoading = false,
                             userMessage = _uiState.value.userMessage
                         )
@@ -89,6 +98,60 @@ class SettingsViewModel(
                 }.collect { newState ->
                     _uiState.value = newState
                 }
+        }
+    }
+
+    fun openProfileSwitcher() {
+        _uiState.update { it.copy(showProfileSwitcherDialog = true) }
+    }
+
+    fun dismissProfileSwitcher() {
+        _uiState.update { it.copy(showProfileSwitcherDialog = false) }
+    }
+
+    fun switchProfile(profileId: String) {
+        viewModelScope.launch {
+            profileRepository.switchActiveProfile(profileId)
+            _uiState.update {
+                it.copy(
+                    showProfileSwitcherDialog = false,
+                    userMessage = "Switched active profile."
+                )
+            }
+        }
+    }
+
+    fun openCreateProfileDialog() {
+        _uiState.update { it.copy(showCreateProfileDialog = true) }
+    }
+
+    fun dismissCreateProfileDialog() {
+        _uiState.update { it.copy(showCreateProfileDialog = false) }
+    }
+
+    fun createNewProfile(name: String, currencyCode: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            val created = profileRepository.createProfile(trimmed, currencyCode)
+            _uiState.update {
+                it.copy(
+                    showCreateProfileDialog = false,
+                    showProfileSwitcherDialog = false,
+                    userMessage = "Created and switched to profile: ${created.name}"
+                )
+            }
+        }
+    }
+
+    fun deleteProfile(profileId: String) {
+        viewModelScope.launch {
+            try {
+                profileRepository.deleteProfile(profileId)
+                _uiState.update { it.copy(userMessage = "Profile removed.") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(userMessage = e.message ?: "Failed to remove profile.") }
+            }
         }
     }
 

@@ -11,6 +11,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -138,6 +139,11 @@ class SettingsViewModelTest {
             profile = updated
             flow.value = updated
         }
+
+        override fun getAllProfilesFlow(): Flow<List<ProfileEntity>> = flow.map { listOfNotNull(it) }
+        override suspend fun getAllProfiles(): List<ProfileEntity> = listOf(profile)
+        override suspend fun switchActiveProfile(profileId: String) {}
+        override suspend fun deleteProfile(profileId: String) {}
     }
 
     private class FakeCategoryRepository(

@@ -94,4 +94,29 @@ class BackupManagerTest {
             // Success
         }
     }
+
+    @Test
+    fun testMultiProfileRestoreModeAndPreviewCounts() {
+        // Verify RestoreMode enum values
+        assertEquals(4, RestoreMode.values().size)
+        assertTrue(RestoreMode.values().contains(RestoreMode.IMPORT_INTO_CURRENT_PROFILE))
+        assertTrue(RestoreMode.values().contains(RestoreMode.IMPORT_AS_NEW_PROFILE))
+        assertTrue(RestoreMode.values().contains(RestoreMode.REPLACE))
+        assertTrue(RestoreMode.values().contains(RestoreMode.MERGE))
+
+        val preview = BackupPreview(
+            formatVersion = 1,
+            schemaVersion = 2,
+            createdAtEpochMillis = 1726000000000L,
+            expenseCount = 5,
+            categoryCount = 8,
+            budgetCount = 3,
+            paymentMethodCount = 4,
+            fileSizeBytes = 2048L
+        )
+        assertEquals(5, preview.expenseCount)
+        assertEquals(8, preview.categoryCount)
+        assertEquals(3, preview.budgetCount)
+        assertEquals(4, preview.paymentMethodCount)
+    }
 }

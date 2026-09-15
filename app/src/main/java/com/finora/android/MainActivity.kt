@@ -15,6 +15,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.finora.android.core.security.SecurityManager
 import com.finora.android.ui.navigation.FinoraNavHost
 import com.finora.android.ui.screens.security.AppLockScreen
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.collectAsState
+import com.finora.android.core.di.DatabaseModule
 import com.finora.android.ui.theme.FinoraTheme
 
 class MainActivity : FragmentActivity() {
@@ -23,9 +26,18 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
 
         val securityManager = SecurityManager.getInstance(this)
+        val profileFlow = DatabaseModule.profileRepository.getActiveProfileFlow()
 
         setContent {
-            FinoraTheme {
+            val activeProfile by profileFlow.collectAsState(initial = null)
+            val isSystemDark = isSystemInDarkTheme()
+            val isDarkTheme = when (activeProfile?.themeMode?.uppercase()) {
+                "DARK" -> true
+                "LIGHT" -> false
+                else -> isSystemDark
+            }
+
+            FinoraTheme(darkTheme = isDarkTheme) {
                 val lifecycleOwner = LocalLifecycleOwner.current
                 var isAppLocked by remember {
                     mutableStateOf(securityManager.shouldRequireUnlock())

@@ -192,9 +192,14 @@ class BudgetsViewModelTest {
     private class FakeProfileRepository(val profile: ProfileEntity) : ProfileRepository {
         override fun getActiveProfileFlow(): Flow<ProfileEntity?> = flowOf(profile)
         override suspend fun getActiveProfile(): ProfileEntity? = profile
+        override fun getAllProfilesFlow(): Flow<List<ProfileEntity>> = flowOf(listOf(profile))
+        override suspend fun getAllProfiles(): List<ProfileEntity> = listOf(profile)
         override suspend fun createProfile(name: String, currencyCode: String, themeMode: String): ProfileEntity = profile
+        override suspend fun switchActiveProfile(profileId: String) {}
+        override suspend fun deleteProfile(profileId: String) {}
         override suspend fun updateThemeMode(themeMode: String) {}
         override suspend fun updateCurrencyCode(currencyCode: String) {}
+        override suspend fun updateProfileName(name: String) {}
     }
 
     private class FakeCategoryRepository(val categories: List<CategoryEntity>) : CategoryRepository {

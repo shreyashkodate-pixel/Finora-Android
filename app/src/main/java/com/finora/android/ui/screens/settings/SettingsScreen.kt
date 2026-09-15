@@ -76,12 +76,26 @@ import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.finora.android.ui.screens.settings.components.CurrencySelectionDialog
 import com.finora.android.ui.screens.settings.components.EditProfileNameDialog
+import com.finora.android.ui.screens.settings.components.ProfileSwitcherDialog
+import com.finora.android.ui.screens.settings.components.CreateProfileDialog
+
+import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Flight
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.SwitchAccount
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateToCategories: () -> Unit,
     onNavigateToBudgets: () -> Unit,
+    onNavigateToNotifications: () -> Unit = {},
+    onNavigateToNetWorth: () -> Unit = {},
+    onNavigateToReconciliation: () -> Unit = {},
+    onNavigateToTravelMode: () -> Unit = {},
+    onNavigateToAudit: () -> Unit = {},
+    onNavigateToAnomalyGuard: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel()
 ) {
@@ -170,19 +184,39 @@ fun SettingsScreen(
                             }
                         }
 
-                        IconButton(
-                            onClick = { viewModel.openEditNameDialog() },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surface)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Edit Profile Name",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            IconButton(
+                                onClick = { viewModel.openProfileSwitcher() },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surface)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SwitchAccount,
+                                    contentDescription = "Switch Profile",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            IconButton(
+                                onClick = { viewModel.openEditNameDialog() },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surface)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit Profile Name",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
 
@@ -354,29 +388,57 @@ fun SettingsScreen(
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
+                                val themeSubtitle = when (uiState.themeMode.uppercase()) {
+                                    "LIGHT" -> "Light Theme active"
+                                    "DARK" -> "Dark Theme active"
+                                    else -> "System default active"
+                                }
                                 Text(
-                                    text = "${uiState.themeMode.lowercase().replaceFirstChar { c -> c.uppercase() }} mode active",
+                                    text = themeSubtitle,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
 
-                        SingleChoiceSegmentedButtonRow(
-                            modifier = Modifier.fillMaxWidth()
+                        val themeOptions = listOf(
+                            "LIGHT" to "Light",
+                            "SYSTEM" to "System",
+                            "DARK" to "Dark"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(4.dp)
                         ) {
-                            val themeOptions = listOf("SYSTEM", "LIGHT", "DARK")
-                            themeOptions.forEachIndexed { index, mode ->
-                                SegmentedButton(
-                                    selected = uiState.themeMode == mode,
-                                    onClick = { viewModel.setThemeMode(mode) },
-                                    shape = SegmentedButtonDefaults.itemShape(index = index, count = themeOptions.size),
-                                    colors = SegmentedButtonDefaults.colors(
-                                        activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                ) {
-                                    Text(mode.lowercase().replaceFirstChar { c -> c.uppercase() })
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                themeOptions.forEach { (mode, label) ->
+                                    val isSelected = uiState.themeMode.equals(mode, ignoreCase = true)
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(36.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(
+                                                if (isSelected) MaterialTheme.colorScheme.surface
+                                                else Color.Transparent
+                                            )
+                                            .clickable { viewModel.setThemeMode(mode) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onSurface
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -646,6 +708,76 @@ fun SettingsScreen(
                 }
             }
 
+            // Group 5: Advanced Intelligence & Audit (V2.0 - V3.0)
+            Text(
+                text = "ADVANCED INTELLIGENCE & AUDIT (V2.0 - V3.0)",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+            )
+
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    SettingsActionItem(
+                        icon = Icons.Default.Alarm,
+                        title = "Notification Rules",
+                        subtitle = "Local AlarmManager cadence & threshold alerts",
+                        onClick = onNavigateToNotifications
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 0.5.dp)
+
+                    SettingsActionItem(
+                        icon = Icons.Default.AccountBalance,
+                        title = "Net Worth & Balance Sheet",
+                        subtitle = "Assets, liabilities, leverage & liquidity ratio",
+                        onClick = onNavigateToNetWorth
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 0.5.dp)
+
+                    SettingsActionItem(
+                        icon = Icons.Default.Description,
+                        title = "Statement Reconciliation",
+                        subtitle = "Air-gapped CSV bank/wallet statement parser",
+                        onClick = onNavigateToReconciliation
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 0.5.dp)
+
+                    SettingsActionItem(
+                        icon = Icons.Default.Flight,
+                        title = "Travel Mode & Forex",
+                        subtitle = "Offline cached FX rates & multi-currency ledger",
+                        onClick = onNavigateToTravelMode
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 0.5.dp)
+
+                    SettingsActionItem(
+                        icon = Icons.Default.Shield,
+                        title = "Anomaly & Outlier Guard",
+                        subtitle = "Statistical outlier detection & leak hunter",
+                        onClick = onNavigateToAnomalyGuard
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 0.5.dp)
+
+                    SettingsActionItem(
+                        icon = Icons.Default.VerifiedUser,
+                        title = "Ledger Integrity & Merkle Audit",
+                        subtitle = "SHA-256 cryptographic hash chain verification",
+                        onClick = onNavigateToAudit
+                    )
+                }
+            }
+
             // Footer Version Info
             Column(
                 modifier = Modifier
@@ -654,13 +786,13 @@ fun SettingsScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "FINORA v1.0.0 — Track",
+                    text = "FINORA v3.0.0 — Complete Release",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Precision Fiscal Architecture • Local SQLite Vault",
+                    text = "Precision Fiscal Architecture • Air-Gapped Local Vault",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -685,6 +817,28 @@ fun SettingsScreen(
                 onDismiss = { viewModel.dismissEditNameDialog() },
                 onSave = { name ->
                     viewModel.saveProfileName(name)
+                }
+            )
+        }
+
+        // Profile Switcher Dialog
+        if (uiState.showProfileSwitcherDialog) {
+            ProfileSwitcherDialog(
+                currentProfileId = uiState.activeProfileId,
+                profiles = uiState.allProfiles,
+                onDismiss = { viewModel.dismissProfileSwitcher() },
+                onSwitchProfile = { id -> viewModel.switchProfile(id) },
+                onCreateProfileClick = { viewModel.openCreateProfileDialog() },
+                onDeleteProfile = { id -> viewModel.deleteProfile(id) }
+            )
+        }
+
+        // Create Profile Dialog
+        if (uiState.showCreateProfileDialog) {
+            CreateProfileDialog(
+                onDismiss = { viewModel.dismissCreateProfileDialog() },
+                onCreate = { name, currencyCode ->
+                    viewModel.createNewProfile(name, currencyCode)
                 }
             )
         }

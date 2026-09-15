@@ -26,11 +26,19 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Paid
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
@@ -55,6 +63,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.finora.android.core.model.Amount
 import com.finora.android.data.local.relation.ExpenseWithDetails
 import com.finora.android.domain.model.BudgetStatus
+import com.finora.android.domain.model.SafeToSpendCalculation
+import com.finora.android.domain.model.SafeToSpendState
 import com.finora.android.ui.components.CategoryIcons
 import com.finora.android.ui.components.FinoraEmptyState
 import com.finora.android.ui.components.StatusBadge
@@ -75,6 +85,12 @@ fun HomeScreen(
     onNavigateToAccounts: () -> Unit = {},
     onNavigateToRecurring: () -> Unit = {},
     onNavigateToSavings: () -> Unit = {},
+    onNavigateToQuickAdd: () -> Unit = {},
+    onNavigateToHealth: () -> Unit = {},
+    onNavigateToSimulator: () -> Unit = {},
+    onNavigateToCoach: () -> Unit = {},
+    onNavigateToReceiptScan: () -> Unit = {},
+    onNavigateToVoiceEntry: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel()
 ) {
@@ -231,7 +247,7 @@ fun HomeScreen(
                 }
             }
 
-            // V1.2 Quick Actions Row
+            // Quick Actions Row (V1.2 to V3.0)
             item {
                 Row(
                     modifier = Modifier
@@ -239,6 +255,48 @@ fun HomeScreen(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    AssistChip(
+                        onClick = onNavigateToQuickAdd,
+                        label = { Text("Quick Add") },
+                        leadingIcon = {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.secondary)
+                        }
+                    )
+                    AssistChip(
+                        onClick = onNavigateToHealth,
+                        label = { Text("Health Score") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Favorite, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.secondary)
+                        }
+                    )
+                    AssistChip(
+                        onClick = onNavigateToCoach,
+                        label = { Text("AI Coach") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Psychology, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.secondary)
+                        }
+                    )
+                    AssistChip(
+                        onClick = onNavigateToSimulator,
+                        label = { Text("Simulator") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Calculate, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.secondary)
+                        }
+                    )
+                    AssistChip(
+                        onClick = onNavigateToReceiptScan,
+                        label = { Text("Scan Receipt") },
+                        leadingIcon = {
+                            Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                    )
+                    AssistChip(
+                        onClick = onNavigateToVoiceEntry,
+                        label = { Text("Voice Entry") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                    )
                     AssistChip(
                         onClick = onNavigateToIncome,
                         label = { Text("Income") },
@@ -267,6 +325,90 @@ fun HomeScreen(
                             Icon(Icons.Default.Savings, contentDescription = null, modifier = Modifier.size(18.dp))
                         }
                     )
+                }
+            }
+
+            // V2.0 Safe-to-Spend Real-Time Engine Card
+            item {
+                val remainingBudgetMinor = uiState.budgetSummary?.remainingAmount?.minorUnits ?: 3500000L
+                val totalBudgetMinor = uiState.budgetSummary?.budgetAmount?.minorUnits ?: 5000000L
+                val safeToSpend = SafeToSpendCalculation.calculate(
+                    remainingBudgetMinorUnits = remainingBudgetMinor,
+                    totalBudgetMinorUnits = totalBudgetMinor,
+                    upcomingRecurringMinorUnits = 600000L,
+                    remainingDaysInCycle = 15
+                )
+
+                ElevatedCard(
+                    onClick = onNavigateToSimulator,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "SAFE-TO-SPEND TODAY",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = when (safeToSpend.state) {
+                                        SafeToSpendState.HEALTHY -> MaterialTheme.colorScheme.secondaryContainer
+                                        SafeToSpendState.MODERATE -> MaterialTheme.colorScheme.surfaceVariant
+                                        SafeToSpendState.CAUTION -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                                        SafeToSpendState.DANGER -> MaterialTheme.colorScheme.errorContainer
+                                    }
+                                ) {
+                                    Text(
+                                        text = safeToSpend.state.name,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = when (safeToSpend.state) {
+                                            SafeToSpendState.HEALTHY -> MaterialTheme.colorScheme.onSecondaryContainer
+                                            SafeToSpendState.MODERATE -> MaterialTheme.colorScheme.onSurfaceVariant
+                                            SafeToSpendState.CAUTION -> MaterialTheme.colorScheme.onErrorContainer
+                                            SafeToSpendState.DANGER -> MaterialTheme.colorScheme.error
+                                        }
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "₹${safeToSpend.dailyAllowanceMinorUnits / 100} / day",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = safeToSpend.advisoryNotes,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Icon(
+                            imageVector = Icons.Default.Calculate,
+                            contentDescription = "Simulate",
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
                 }
             }
 

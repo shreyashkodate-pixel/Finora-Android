@@ -49,6 +49,23 @@ sealed class Screen(
         fun createRoute(budgetId: String) = "budget_detail/$budgetId"
     }
 
+    // V2.0 Routes
+    data object NotificationSettings : Screen("notification_settings")
+    data object ReceiptScan : Screen("receipt_scan")
+    data object VoiceEntry : Screen("voice_entry")
+    data object QuickAdd : Screen("quick_add")
+    data object ShareImport : Screen("share_import")
+    data object FinancialHealth : Screen("financial_health")
+    data object AnomalyGuard : Screen("anomaly_guard")
+    data object NetWorth : Screen("net_worth")
+    data object StatementReconciliation : Screen("statement_reconciliation")
+    data object TravelMode : Screen("travel_mode")
+
+    // V3.0 Routes
+    data object FinancialCoach : Screen("financial_coach")
+    data object PurchaseSimulator : Screen("purchase_simulator")
+    data object MerkleAudit : Screen("merkle_audit")
+
     companion object {
         val bottomNavScreens: List<Screen>
             get() = listOf(

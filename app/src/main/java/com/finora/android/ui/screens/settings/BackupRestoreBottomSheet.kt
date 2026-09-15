@@ -86,7 +86,8 @@ fun BackupRestoreBottomSheet(
     var restoreError by remember { mutableStateOf<String?>(null) }
     var isRestoring by remember { mutableStateOf(false) }
     var previewData by remember { mutableStateOf<Pair<BackupPreview, JSONObject>?>(null) }
-    var selectedRestoreMode by remember { mutableStateOf(RestoreMode.REPLACE) }
+    var selectedRestoreMode by remember { mutableStateOf(RestoreMode.IMPORT_INTO_CURRENT_PROFILE) }
+    var customNewProfileName by remember { mutableStateOf("") }
 
     val createBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
@@ -98,8 +99,9 @@ fun BackupRestoreBottomSheet(
                     try {
                         val db = DatabaseModule.getDatabase()
                         val manager = BackupManager(db)
+                        val activeProfile = DatabaseModule.profileRepository.getActiveProfile()
                         context.contentResolver.openOutputStream(uri)?.use { os ->
-                            manager.createBackup(backupPassword, os)
+                            manager.createBackup(backupPassword, os, activeProfile?.id)
                         }
                         true
                     } catch (e: Exception) {
@@ -331,7 +333,54 @@ fun BackupRestoreBottomSheet(
 
                         Text("Restore Mode", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
 
-                        Column {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            // 1. Import into Current Profile
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedRestoreMode = RestoreMode.IMPORT_INTO_CURRENT_PROFILE },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedRestoreMode == RestoreMode.IMPORT_INTO_CURRENT_PROFILE,
+                                    onClick = { selectedRestoreMode = RestoreMode.IMPORT_INTO_CURRENT_PROFILE }
+                                )
+                                Column(modifier = Modifier.padding(start = 8.dp)) {
+                                    Text("Import into Current Profile (Recommended)", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                                    Text("Imports and maps all expenses, categories, and accounts into your currently active profile so you can continue your work.", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+
+                            // 2. Import as New Profile
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedRestoreMode = RestoreMode.IMPORT_AS_NEW_PROFILE },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedRestoreMode == RestoreMode.IMPORT_AS_NEW_PROFILE,
+                                    onClick = { selectedRestoreMode = RestoreMode.IMPORT_AS_NEW_PROFILE }
+                                )
+                                Column(modifier = Modifier.padding(start = 8.dp)) {
+                                    Text("Import as New Profile", fontWeight = FontWeight.SemiBold)
+                                    Text("Creates a separate new profile from the backup without modifying your current profile.", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+
+                            if (selectedRestoreMode == RestoreMode.IMPORT_AS_NEW_PROFILE) {
+                                OutlinedTextField(
+                                    value = customNewProfileName,
+                                    onValueChange = { customNewProfileName = it },
+                                    label = { Text("New Profile Name (Optional)") },
+                                    placeholder = { Text("e.g. Work, Secondary, or Imported") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().padding(start = 36.dp, top = 4.dp),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                            }
+
+                            // 3. Replace
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -343,24 +392,8 @@ fun BackupRestoreBottomSheet(
                                     onClick = { selectedRestoreMode = RestoreMode.REPLACE }
                                 )
                                 Column(modifier = Modifier.padding(start = 8.dp)) {
-                                    Text("Replace (Recommended)", fontWeight = FontWeight.SemiBold)
-                                    Text("Overwrites local data with backup records cleanly.", style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { selectedRestoreMode = RestoreMode.MERGE },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                RadioButton(
-                                    selected = selectedRestoreMode == RestoreMode.MERGE,
-                                    onClick = { selectedRestoreMode = RestoreMode.MERGE }
-                                )
-                                Column(modifier = Modifier.padding(start = 8.dp)) {
-                                    Text("Merge", fontWeight = FontWeight.SemiBold)
-                                    Text("Adds missing records without deleting existing items.", style = MaterialTheme.typography.bodySmall)
+                                    Text("Replace Entire Vault", fontWeight = FontWeight.SemiBold)
+                                    Text("Clears all existing profiles and records, replacing them with the backup.", style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
@@ -370,19 +403,32 @@ fun BackupRestoreBottomSheet(
                                 val json = previewData!!.second
                                 scope.launch {
                                     isRestoring = true
-                                    val success = withContext(Dispatchers.IO) {
+                                    val resultId = withContext(Dispatchers.IO) {
                                         try {
-                                            val manager = BackupManager(DatabaseModule.getDatabase())
-                                            manager.restoreFromDecryptedJson(json, selectedRestoreMode)
-                                            true
+                                            val db = DatabaseModule.getDatabase()
+                                            val manager = BackupManager(db)
+                                            val activeProfile = DatabaseModule.profileRepository.getActiveProfile()
+                                            manager.restoreFromDecryptedJson(
+                                                json = json,
+                                                mode = selectedRestoreMode,
+                                                targetProfileId = activeProfile?.id,
+                                                newProfileName = customNewProfileName.takeIf { it.isNotBlank() }
+                                            )
                                         } catch (e: Exception) {
                                             e.printStackTrace()
-                                            false
+                                            "ERROR"
                                         }
                                     }
                                     isRestoring = false
-                                    if (success) {
-                                        onSuccessMessage("Backup successfully restored!")
+                                    if (resultId != "ERROR") {
+                                        if (selectedRestoreMode == RestoreMode.IMPORT_AS_NEW_PROFILE && resultId != null) {
+                                            DatabaseModule.profileRepository.switchActiveProfile(resultId)
+                                            onSuccessMessage("Backup imported as new profile & activated!")
+                                        } else if (selectedRestoreMode == RestoreMode.IMPORT_INTO_CURRENT_PROFILE) {
+                                            onSuccessMessage("Backup imported into current profile successfully!")
+                                        } else {
+                                            onSuccessMessage("Backup successfully restored!")
+                                        }
                                         onDismiss()
                                     } else {
                                         restoreError = "Failed to commit restore. Changes rolled back."

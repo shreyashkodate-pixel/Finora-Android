@@ -63,6 +63,9 @@ interface SavingsGoalDao {
     @Query("SELECT * FROM savings_goals")
     suspend fun getAllGoals(): List<SavingsGoalEntity>
 
+    @Query("SELECT * FROM savings_goals WHERE profileId = :profileId")
+    suspend fun getGoalsByProfileId(profileId: String): List<SavingsGoalEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGoals(goals: List<SavingsGoalEntity>)
 

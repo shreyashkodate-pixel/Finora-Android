@@ -242,6 +242,7 @@ class RepositoryTest {
 
         override fun getActiveProfileFlow(): Flow<ProfileEntity?> = flowOf(profile)
         override suspend fun getActiveProfile(): ProfileEntity? = profile
+        override fun getProfileByIdFlow(id: String): Flow<ProfileEntity?> = flowOf(if (profile?.id == id) profile else null)
         override suspend fun getProfileById(id: String): ProfileEntity? = if (profile?.id == id) profile else null
         override suspend fun insertProfile(profile: ProfileEntity) { this.profile = profile }
         override suspend fun updateProfile(profile: ProfileEntity) { this.profile = profile }
@@ -249,7 +250,9 @@ class RepositoryTest {
         override suspend fun updateCurrencyCode(id: String, currencyCode: String) { profile = profile?.copy(currencyCode = currencyCode) }
         override suspend fun updateProfileName(id: String, name: String, updatedAt: Long) { profile = profile?.copy(name = name, updatedAt = updatedAt) }
 
+        override fun getAllProfilesFlow(): Flow<List<ProfileEntity>> = flowOf(listOfNotNull(profile))
         override suspend fun getAllProfiles(): List<ProfileEntity> = listOfNotNull(profile)
+        override suspend fun deleteProfileById(id: String) { if (profile?.id == id) profile = null }
         override suspend fun deleteAllProfiles() { profile = null }
     }
 }

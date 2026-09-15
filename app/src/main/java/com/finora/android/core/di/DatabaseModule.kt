@@ -28,10 +28,13 @@ object DatabaseModule {
 
     @Volatile
     private var database: FinoraDatabase? = null
+    @Volatile
+    private var appContext: Context? = null
 
     val profileRepository: ProfileRepository by lazy {
         val db = checkNotNull(database) { "DatabaseModule must be initialized with Context first" }
-        ProfileRepositoryImpl(db.profileDao(), db.categoryDao(), db.paymentMethodDao())
+        val prefs = appContext?.getSharedPreferences("finora_profile_prefs", Context.MODE_PRIVATE)
+        ProfileRepositoryImpl(db.profileDao(), db.categoryDao(), db.paymentMethodDao(), prefs)
     }
 
     val categoryRepository: CategoryRepository by lazy {
@@ -79,6 +82,7 @@ object DatabaseModule {
     }
 
     fun initialize(context: Context) {
+        appContext = context.applicationContext
         if (database == null) {
             synchronized(this) {
                 if (database == null) {

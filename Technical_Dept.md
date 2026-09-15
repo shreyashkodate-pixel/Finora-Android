@@ -1,9 +1,9 @@
 # FINORA Android — Technical Debt & Future Roadmap
 
 **Document Purpose**: Tracks technical debt, architectural improvements, and upcoming roadmap items for Finora Android.  
-**Current Status**: V1.0 ("Track"), V1.1 ("Protect & Own"), and V1.2 ("Experience & Expand") COMPLETED.  
-**Target Next Release**: V2.0 — Safe-to-Spend & Financial Health Score ("Understand")  
-**Last Updated**: September 13, 2026
+**Current Status**: V1.0 ("Track"), V1.1 ("Protect & Own"), V1.2 ("Experience & Expand"), V2.0 ("Understand"), and V3.0 ("Improve") COMPLETED.  
+**Target Next Release**: Maintenance & Polishing  
+**Last Updated**: September 15, 2026
 
 ---
 
@@ -11,23 +11,18 @@
 
 ### 1.1 Dependency Injection (DI) Migration
 * **Current State**: Service locator `DatabaseModule` provides repository singletons; ViewModels use default arguments pointing to `DatabaseModule`.
-* **Debt**: As feature screens grow into V2.0/V3.0, migrating to Hilt or Koin will streamline graph validation and improve testing isolation.
-* **Target Solution**: Introduce Hilt (`@HiltAndroidApp`, `@HiltViewModel`, `@Inject`) when beginning V2.0.
+* **Target Solution**: Migrate to Hilt (`@HiltAndroidApp`, `@HiltViewModel`, `@Inject`) in future major refactoring.
 
 ### 1.2 List Pagination / Room Paging 3 Integration
 * **Current State**: Flow-based list emission loads transactions into memory.
-* **Debt**: With high volume transaction history over years, memory usage could increase.
 * **Target Solution**: Integrate Android Jetpack **Paging 3** (`PagingSource` / `Pager`) with Room to stream paginated transactions with `collectAsLazyPagingItems()`.
 
 ### 1.3 Adaptive Layout Support (Foldables & Tablets)
-* **Current State**: Responsive phone layouts implemented across portrait and landscape.
-* **Debt**: Two-pane master-detail layouts for Foldables and Tablets (`ListDetailPaneScaffold`) can be added for enhanced widescreen presentation.
-* **Target Solution**: Implement Material 3 Adaptive library components in V2.0.
+* **Current State**: Responsive phone layouts implemented across portrait and landscape with Material 3 styling.
+* **Target Solution**: Implement Material 3 Adaptive library components (`ListDetailPaneScaffold`) for enhanced two-pane tablet presentation.
 
 ### 1.4 Dynamic Theme Preference Observation
-* **Current State**: Settings UI provides System / Light / Dark selector and persists user preference to `profiles.themeMode` in Room.
-* **Debt**: `MainActivity.kt` currently defaults `FinoraTheme` to `isSystemInDarkTheme()`.
-* **Target Solution**: Observe `profileRepository.getActiveProfileFlow()` in `MainActivity` to dynamically apply `themeMode` across the app in real-time.
+* **Status**: [x] RESOLVED. `MainActivity.kt` observes `profileRepository.getActiveProfileFlow()` and dynamically updates `FinoraTheme(darkTheme = isDarkTheme)` across Light, Dark, and System modes in real time.
 
 ---
 
@@ -53,23 +48,20 @@
     ├── Savings Goals & Target Visualizer (Goal progress %, remaining gap, pace recommendations)
     └── Native Android Integrations (App Widget, Static Launcher Shortcuts, Share Sheet Receiver)
 
-[ ] V2.0 (Understand) — Intelligence & Automation
-    ├── Safe-to-Spend Real-Time Engine (daily spendable buffer)
-    ├── Financial Health Score (5 weighted components: Savings Rate, Budget Adherence, Debt-to-Income, etc.)
-    ├── Duplicate Guard & Leak Hunter
-    ├── Multi-Currency & Travel Mode
-    └── Assisted Entry: On-device Receipt OCR & Voice Entry Pipeline
+[x] V2.0 (Understand) — Intelligence & Automation
+    ├── Safe-to-Spend Real-Time Engine (Daily spendable buffer & 4 health states)
+    ├── Financial Health Score (0–100 score, 5 weighted pillars, score drivers, tips)
+    ├── Duplicate Guard & Statistical Leak Hunter (Z-score > 2.2, micro-spend clusters)
+    ├── Multi-Currency & Travel Mode (INR base, cached rates, real-time conversion)
+    ├── Assisted Entry: On-Device Receipt OCR Review & Voice Entry Pipeline
+    ├── Natural Language Quick Add (Tokenized NLP parser with inline category matching)
+    ├── Share Import Preview (External transaction receipt text parser)
+    ├── Net Worth Ledger (Assets, liabilities, leverage ratio, conservative calculation)
+    ├── Statement Reconciliation (RFC 4180 CSV statement parser & batch expense reconciliation)
+    └── Notification & Digest Settings (Daily briefing, cycle alerts, quiet hours)
 
-[ ] V3.0 (Improve) — AI Coach & Audit Integrity
-    ├── On-Device AI Financial Coach (Local LLM / Privacy Sandbox)
-    ├── "What-If" Purchase Simulator
-    └── Merkle Audit Ledger for Data Integrity
+[x] V3.0 (Improve) — AI Coach & Audit Integrity
+    ├── AI Financial Coach (Local deterministic Q&A engine, 50/30/20 card, zero telemetry)
+    ├── "What-If" Purchase Simulator (Discretionary impact, pace check, safe-to-buy badges)
+    └── Merkle Audit Ledger (SHA-256 block hash chaining & binary Merkle root verification)
 ```
-
----
-
-## 3. Next Milestone (V2.0 — "Understand") Priorities
-
-1. **Safe-to-Spend Daily Engine**: Calculate uncommitted liquid discretionary income divided by remaining days in cycle.
-2. **Financial Health Score**: Deterministic 0–100 score evaluating emergency buffer, savings pace, and budget variance.
-3. **On-Device Receipt OCR Pipeline**: Privacy-first, local text extraction without sending financial images off-device.

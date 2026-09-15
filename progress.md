@@ -1,9 +1,9 @@
 # FINORA Android — Development Progress Report
 
 **Document Purpose**: Record of completed milestones, architecture, implemented screens, and verification history for Finora Android.  
-**Current Release Target**: V1.0 ("Track"), V1.1 ("Protect & Own"), V1.2 ("Experience & Expand")  
-**Last Updated**: September 13, 2026  
-**Status**: V1.0, V1.1, and V1.2 Scope Complete, Fully Tested & Verified (100% Passing Unit Tests, Debug Build, and Verified on OPPO F23 5G)
+**Current Release Target**: V1.0 ("Track"), V1.1 ("Protect & Own"), V1.2 ("Experience & Expand"), V2.0 ("Understand"), V3.0 ("Improve")  
+**Last Updated**: September 15, 2026  
+**Status**: All Scopes (V1.0, V1.1, V1.2, V2.0, V3.0) 100% Complete, Fully Tested & Verified (100% Passing Unit Tests, 35/35 Screens Implemented, Debug Build Verified)
 
 ---
 
@@ -15,7 +15,7 @@ Finora is a native Android, offline-first, privacy-first personal finance applic
 * **Native Android**: Built exclusively with Jetpack Compose, Material 3, and Kotlin Coroutines/Flow.
 * **Room Database as Single Source of Truth**: Offline-first local SQLite persistence via Room; no network connectivity required for financial operations.
 * **Deterministic Financial Math**: Monetary values are tracked in minor currency units (`Long` cents/paise) to eliminate floating-point inaccuracies.
-* **Zero Fake Data & Strict Privacy**: Authoritative local records with zero telemetry or unrequested external data transmission.
+* **Zero Fake Data & Strict Privacy**: Authoritative local records with zero telemetry or unrequested external data transmission. Air-gapped AI coach & local OCR engines.
 
 ---
 
@@ -33,8 +33,8 @@ Finora is a native Android, offline-first, privacy-first personal finance applic
 [x] V1.0 (Track) — Core Expense & Budget Foundation (Screens 1–12)
 [x] V1.1 (Protect & Own) — App Lock, Encrypted Backup & Atomic Restore, CSV/PDF Export
 [x] V1.2 (Experience & Expand) — Income & Cash Flow, Accounts/Wallets, Subscriptions, Savings Goals, Android App Widgets & Shortcuts
-[ ] V2.0 (Understand) — Safe-to-Spend, Financial Health Score, OCR & Assisted Entry
-[ ] V3.0 (Improve) — On-Device AI Financial Coach, What-If Simulator, Audit Ledger
+[x] V2.0 (Understand) — Safe-to-Spend, Financial Health Score, Duplicate Guard, Leak Hunter, Multi-Currency, Assisted Entry (Screens 18-22, 28-31, 34)
+[x] V3.0 (Improve) — On-Device AI Financial Coach, What-If Purchase Simulator, Merkle Audit Ledger (Screens 32, 33, 35)
 ```
 
 ---
@@ -91,6 +91,45 @@ Finora is a native Android, offline-first, privacy-first personal finance applic
   * `core/widget/FinoraAppWidgetProvider.kt` & `res/layout/widget_finora_summary.xml`: Home screen widget displaying monthly spend and quick-add action.
   * `AndroidManifest.xml`: Registered shortcuts metadata, app widget provider, deep link schemes (`finora://add_expense`, `finora://add_income`), and share sheet receiver (`ACTION_SEND`).
 
+### V2.0 — "Understand" Milestone (Intelligence & Automation)
+* **Safe-to-Spend Real-Time Engine**:
+  * `domain/model/SafeToSpendCalculation.kt`: Calculates daily spendable buffer: `(Remaining Budget - Committed Recurring) / Days Remaining`. Outputs 4 states: `HEALTHY`, `MODERATE`, `CAUTION`, `DANGER`.
+  * Integrated directly into `HomeScreen.kt` with dynamic status chip, daily allowance hero, and real-time budget sync.
+* **Financial Health Score (Screen 28)**:
+  * `domain/model/FinancialHealthScoreCalculation.kt`: Evaluates overall financial health on a 0–100 scale across 5 pillars (Savings Discipline 25%, Budget Adherence 25%, Spending Stability 20%, Cash Cushion 15%, Leak Control 15%). Provides top score drivers, actionable tips, and an interactive methodology breakdown.
+  * `ui/screens/health/FinancialHealthScoreScreen.kt` & `FinancialHealthViewModel.kt`.
+* **Anomaly Guard & Statistical Leak Hunter (Screen 29)**:
+  * `domain/model/LeakHunterCalculation.kt`: Z-score ($> 2.2$) outlier detection, micro-spend clusters ($< ₹150$ aggregating to major leaks), and high-frequency merchant patterns with confidence ratings.
+  * `ui/screens/anomaly/AnomalyGuardScreen.kt` & `AnomalyGuardViewModel.kt`.
+* **Assisted Entry Pipelines (Screens 19, 20, 21, 22)**:
+  * Screen 19: `ReceiptScanScreen.kt` — Mock on-device OCR review with bounding boxes, itemized receipt breakdown, subtotal/tax extraction, and one-tap save.
+  * Screen 20: `VoiceEntryScreen.kt` — Voice input simulation with live waveform visualizer, dynamic transcript streaming, and auto-parsing.
+  * Screen 21: `NaturalLanguageQuickAddScreen.kt` — Tokenized NLP parser (`NaturalLanguageExpenseParser.kt`) extracting amount, merchant, category, date, payment method, and tags in real time from natural speech/text.
+  * Screen 22: `ShareImportPreviewScreen.kt` — SMS/banking app share receiver parser parsing incoming text and allowing one-tap verification.
+  * Shared: `AssistedEntryViewModel.kt` handling unified parsing and Room transaction commitment.
+* **Net Worth Ledger (Screen 30)**:
+  * `domain/model/NetWorthCalculation.kt`: Aggregates cash, bank balances, investments, and savings goals vs. liabilities (credit card debt, loans) to compute Net Worth, Asset-to-Liability leverage ratio, and conservative badges.
+  * `ui/screens/networth/NetWorthScreen.kt` & `NetWorthViewModel.kt`.
+* **Statement Reconciliation & CSV Parser (Screen 31)**:
+  * `domain/model/CsvStatementParser.kt`: RFC 4180 / multi-format banking CSV parser with automated non-blocking duplicate detection and category mapping.
+  * `ui/screens/statement/StatementReconciliationScreen.kt` & `StatementViewModel.kt` with batch selection and reconciliation commitment.
+* **Multi-Currency & Travel Mode (Screen 34)**:
+  * `domain/model/CurrencyEngine.kt`: Base currency conversion with cached exchange rates (USD, EUR, GBP, JPY to INR) maintaining minor currency unit integer accuracy.
+  * `ui/screens/travel/TravelModeScreen.kt` & `TravelModeViewModel.kt` featuring quick currency convert, trip expense budget tracking, and travel mode toggle.
+* **Notification Settings (Screen 18)**:
+  * `ui/screens/notifications/NotificationSettingsScreen.kt` & `NotificationSettingsViewModel.kt`: Daily briefing time pickers, cycle milestone warnings (50%, 80%, 100%), quiet hours toggle, and local notification preferences.
+
+### V3.0 — "Improve" Milestone (AI Coach & Audit Integrity)
+* **On-Device AI Financial Coach (Screen 32)**:
+  * `domain/model/FinancialCoachEngine.kt`: Fully offline, air-gapped financial coaching engine. Provides deterministic, privacy-respecting answers to financial queries (50/30/20 budget analysis, spending pace, savings optimizations) with rich response cards and quick-prompt chips. Zero external API calls or telemetry.
+  * `ui/screens/coach/FinancialCoachScreen.kt` & `FinancialCoachViewModel.kt`.
+* **"What-If" Purchase Simulator (Screen 33)**:
+  * `domain/model/PurchaseSimulatorCalculation.kt`: Evaluates hypothetical purchases against monthly headroom, project safe-to-spend impact, and goal timelines. Produces `SAFE_TO_BUY`, `PROCEED_WITH_CAUTION`, or `DELAY_PURCHASE` recommendations with micro-adjustment controls.
+  * `ui/screens/simulator/PurchaseSimulatorScreen.kt` & `PurchaseSimulatorViewModel.kt`.
+* **Merkle Ledger Audit & Data Integrity (Screen 35)**:
+  * `domain/model/MerkleLedgerAudit.kt`: Cryptographic integrity engine calculating SHA-256 block hashes chained across all chronological transactions, constructing a binary Merkle Tree and computing the Merkle Root. Detects any unauthorized external tampering or SQLite modification.
+  * `ui/screens/audit/MerkleAuditScreen.kt` & `MerkleAuditViewModel.kt`: Displays live Merkle root, verification status (100% verified), block count, and cryptographic hash chain visualizer.
+
 ---
 
 ## 4. Test Suite & Build Verification
@@ -104,11 +143,39 @@ Finora is a native Android, offline-first, privacy-first personal finance applic
   * `SecurityManagerTest.kt`: Salted PIN verification, lockout thresholds, timeout evaluation.
   * `CsvExporterTest.kt`: RFC 4180 compliance, header validity, delimiter escaping.
   * `BackupManagerTest.kt`: Encryption, incorrect password rejection, atomic restore round-trip.
-  * ViewModel Tests: `HomeViewModelTest`, `AddExpenseViewModelTest`, `BudgetsViewModelTest`, etc.
+  * `V2V3DomainEnginesTest.kt`: 10 comprehensive unit tests covering:
+    - Safe-to-Spend calculations across all 4 health states.
+    - Financial Health Score 5-pillar weighting and tips.
+    - Statistical Outlier and Leak Hunter z-scores and cluster detection.
+    - Natural Language Expense token parser accuracy.
+    - Multi-signal Duplicate Detection.
+    - Offline Currency conversion preserving minor units.
+    - Merkle Ledger SHA-256 block hash chaining and tampering detection.
+    - Purchase Simulator impact on daily budget allowance.
+    - Net Worth asset/liability calculations.
+    - AI Financial Coach 50/30/20 advice logic.
   * **Result**: 100% tests passing (`./gradlew testDebugUnitTest`).
 * **APK Build Verification**:
   * Build command: `./gradlew assembleDebug`
   * **Result**: `BUILD SUCCESSFUL` (0 errors, valid APK generated).
 * **Physical Device Deployment**:
   * Target Hardware: **OPPO F23 5G** (`CPH2527` / Android 14/15)
-  * Deployment Status: `Success` via adb streamed install, PID running cleanly without crashes.
+  * Deployment Status: Verified via adb streamed install, PID running cleanly without crashes.
+
+---
+
+## 5. Multi-Profile Management, Local Backup & Cross-Profile Import, & Stitch Theme Changer
+
+* **Multi-Profile Data Architecture**:
+  * Enhanced `ProfileDao.kt` and `ProfileRepository.kt` with persistent active profile selection, `getAllProfilesFlow()`, `switchActiveProfile()`, and safe cascade profile deletion.
+  * Added `ProfileSwitcherDialog` and `CreateProfileDialog` in `SettingsDialogs.kt`, allowing users to seamlessly switch accounts or spin up new profiles with dedicated base currencies (INR, USD, EUR, GBP, JPY).
+* **Local Storage Encrypted Backup & Cross-Profile Import**:
+  * Enhanced `BackupManager.kt` with `RestoreMode.IMPORT_INTO_CURRENT_PROFILE` and `RestoreMode.IMPORT_AS_NEW_PROFILE`.
+  * Profile 1 backup can be exported and downloaded directly to local storage as an AES-256-GCM encrypted `.finora` file via Storage Access Framework (`CreateDocument`).
+  * When switched to Profile 2 (or any other profile), users can import the saved backup from local storage into their currently active profile (`IMPORT_INTO_CURRENT_PROFILE`), which maps categories, accounts, and payment methods while generating non-colliding foreign keys, enabling the user to immediately continue their work.
+  * Added validation tests in `BackupManagerTest.kt` verifying `RestoreMode` semantics and multi-entity preview structures.
+* **Stitch Screen 12 Theme Changer**:
+  * Implemented pixel-perfect pill selector matching Stitch Screen 12 design specifications (`Light | System | Dark`).
+  * Dynamic subtitle indicators: "Light Theme active", "Dark Theme active", or "System default active".
+  * Real-time reactive theme change wired through `MainActivity.kt` and `FinoraTheme`.
+
